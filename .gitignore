@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.vscode/
+.idea/
+*.log
+*.csv
+*.png
+*.pdf
+!docs/**/*.pdf
