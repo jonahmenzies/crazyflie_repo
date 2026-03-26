@@ -13,7 +13,7 @@ import numpy as np
 import math
 
 # Change this to match your drone
-URI = 'radio://0/90/2M/E7E7E7E7E7'
+URI = 'radio://0/10/2M/E7E7E7E7E7'
 SURVEY_ALT = 0.5
 
 #class formationController:
@@ -154,6 +154,12 @@ def main():
             drone.takeoff()
             drone.hover(3.0)
             drone.orient(0.0)
+            drone.hover(3.0)
+            drone.current_setpoint = {'x': 0, 'y': 0, 'z': SURVEY_ALT, 'yaw': 0}
+            drone.fly_to_setpoint()
+            drone.hover(3.0)
+            drone.current_setpoint = {'x': 0.5, 'y': 0.5, 'z': SURVEY_ALT, 'yaw': 0}
+            drone.fly_to_setpoint()
             drone.hover(3.0)
             drone.land()
         except KeyboardInterrupt:
