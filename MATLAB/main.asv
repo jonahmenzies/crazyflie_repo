@@ -1,0 +1,335 @@
+%%  Formation Control -- Controller Comparison with Diagnostics
+%   Cooperative differential game theory - Jiang et al. (2020)
+%
+%   Compares Closed-Loop, Open-Loop, and Semi-Open-Loop controllers
+%   with configurable TATD measurement window and pre-replan drift analysis.
+%
+clc; clear all; close all;
+
+%% ── Config ────────────────────────────────────────────────────────────────
+semiOpenTime = 5.0;         % Semi-open-loop replan interval (s)
+
+% TATD measurement window
+% 'full'      : t=0 to end  (includes transient)
+% 'post_first': t=T_s to end (after first replan cycle -- recommended)
+% 'manual'    : use TATD_t_start below
+TATD_MODE    = 'post_first';
+TATD_t_start = 10.0;        % only used if TATD_MODE = 'manual'
+
+%% ── Parameters & Riccati ─────────────────────────────────────────────────
+P = sims.params();
+fprintf('[1/4] Running Riccati solver...\n');
+sims.riccatiSolver();
+ric = load('riccati_solution.mat');
+
+%% ── Run Simulations ──────────────────────────────────────────────────────
+fprintf('[2/4] Closed-loop...\n');
+[x_cl,  u_cl,  ~] = sims.closedLoop(P, ric);
+
+fprintf('[3/4] Open-loop...\n');
+[x_ol,  u_ol,  ~] = sims.openLoop(P, ric);
+
+fprintf('[4/4] Semi-open-loop (replan = %.1f s)...\n', semiOpenTime);
+[x_sol, u_sol, ~] = sims.semiOpenLoop(P, ric, semiOpenTime);
+
+t_vec  = (0 : ric.n_steps-1) * P.dt;
+xd     = ric.xd;
+n_steps = length(t_vec);
+
+%% ── TATD Window Selection ────────────────────────────────────────────────
+switch TATD_MODE
+    case 'full'
+        t_tatd_start = 0;
+    case 'post_first'
+        t_tatd_start = semiOpenTime;   % after first replan cycle completes
+    case 'manual'
+        t_tatd_start = TATD_t_start;
+    otherwise
+        error('Unknown TATD_MODE: %s', TATD_MODE);
+end
+
+tatd_idx = find(t_vec >= t_tatd_start, 1);
+if isempty(tatd_idx), tatd_idx = 1; end
+
+%% ── Compute TATD (windowed) ──────────────────────────────────────────────
+TATD_cl  = utils.computeTATD(x_cl,  xd, P.N, n_steps, P);
+TATD_ol  = utils.computeTATD(x_ol,  xd, tatd_idx, n_steps, P);
+TATD_sol = utils.computeTATD(x_sol, xd, tatd_idx, n_steps, P);
+
+%% ── Compute Formation Error vs Time (all three) ──────────────────────────
+pairs   = nchoosek(1:P.N, 2);
+ferr_cl  = computeFormationError(x_cl,  xd, P.N, n_steps);
+ferr_ol  = computeFormationError(x_ol,  xd, P.N, n_steps);
+ferr_sol = computeFormationError(x_sol, xd, P.N, n_steps);
+
+%% ── Pre-Replan Drift (Semi-Open-Loop only) ───────────────────────────────
+% Formation error immediately BEFORE each replan trigger
+replan_times  = semiOpenTime : semiOpenTime : t_vec(end);
+replan_ferr   = zeros(size(replan_times));
+replan_steps  = zeros(size(replan_times));
+
+for r = 1:length(replan_times)
+    k = find(t_vec >= replan_times(r), 1) - 1;
+    if isempty(k) || k < 1, k = 1; end
+    replan_steps(r) = k;
+    replan_ferr(r)  = ferr_sol(k);
+end
+
+%% ── Tracking Error vs Time (Drone 1 only) ────────────────────────────────
+idx     = [1, 4, 7];   % drone 1 x,y,z state indices
+err_cl  = vecnorm(x_cl(idx,:)  - xd(:,idx)', 2, 1);
+err_ol  = vecnorm(x_ol(idx,:)  - xd(:,idx)', 2, 1);
+err_sol = vecnorm(x_sol(idx,:) - xd(:,idx)', 2, 1);
+
+%% ── TATD Sensitivity: sweep start time ──────────────────────────────────
+% Shows how TATD changes depending on when measurement begins
+t_sweep   = 0 : P.dt*5 : t_vec(end)/2;
+TATD_sweep_cl  = zeros(size(t_sweep));
+TATD_sweep_ol  = zeros(size(t_sweep));
+TATD_sweep_sol = zeros(size(t_sweep));
+
+for s = 1:length(t_sweep)
+    idx_s = find(t_vec >= t_sweep(s), 1);
+    if isempty(idx_s), idx_s = 1; end
+    TATD_sweep_cl(s)  = utils.computeTATD(x_cl,  xd, idx_s, n_steps, P);
+    TATD_sweep_ol(s)  = utils.computeTATD(x_ol,  xd, idx_s, n_steps, P);
+    TATD_sweep_sol(s) = utils.computeTATD(x_sol, xd, idx_s, n_steps, P);
+end
+
+pct_sweep_ol  = ((TATD_sweep_ol  - TATD_sweep_cl) ./ TATD_sweep_cl) * 100;
+pct_sweep_sol = ((TATD_sweep_sol - TATD_sweep_cl) ./ TATD_sweep_cl) * 100;
+
+%% ════════════════════════════════════════════════════════════════════════
+%  TERMINAL REPORT
+%  ════════════════════════════════════════════════════════════════════════
+ol_pct  = ((TATD_ol  - TATD_cl) / TATD_cl) * 100;
+sol_pct = ((TATD_sol - TATD_cl) / TATD_cl) * 100;
+
+fprintf('\n════════════════════════════════════════════════════════════\n');
+fprintf('  SIMULATION DIAGNOSTIC REPORT\n');
+fprintf('════════════════════════════════════════════════════════════\n');
+fprintf('  Semi-open-loop replan interval : %.1f s\n', semiOpenTime);
+fprintf('  TATD measurement mode          : %s\n',     TATD_MODE);
+fprintf('  TATD measurement start time    : %.2f s\n', t_tatd_start);
+fprintf('  Total simulation time          : %.2f s\n', t_vec(end));
+fprintf('  Number of drones               : %d\n',     P.N);
+fprintf('────────────────────────────────────────────────────────────\n');
+fprintf('  %-20s  %10s  %14s\n', 'Controller', 'TATD (m)', '% vs Closed');
+fprintf('  %-20s  %10.6f  %14s\n',   'Closed-Loop',    TATD_cl,  '--');
+fprintf('  %-20s  %10.6f  %13.2f%%\n', 'Open-Loop',    TATD_ol,  ol_pct);
+fprintf('  %-20s  %10.6f  %13.2f%%\n', 'Semi-Open-Loop', TATD_sol, sol_pct);
+fprintf('────────────────────────────────────────────────────────────\n');
+
+% Steady-state formation error (last 20% of sim)
+ss_start = round(0.8 * n_steps);
+fprintf('  Steady-state formation error (last 20%% of sim):\n');
+fprintf('    Closed-Loop    : %.5f m\n', mean(ferr_cl(ss_start:end)));
+fprintf('    Open-Loop      : %.5f m\n', mean(ferr_ol(ss_start:end)));
+fprintf('    Semi-Open-Loop : %.5f m\n', mean(ferr_sol(ss_start:end)));
+fprintf('────────────────────────────────────────────────────────────\n');
+
+% Pre-replan drift summary
+fprintf('  Pre-replan formation error (semi-open-loop):\n');
+fprintf('    %-8s  %s\n', 'Replan #', 'Formation Error (m)');
+for r = 1:length(replan_times)
+    fprintf('    %-8d  %.5f m  (t = %.1f s)\n', r, replan_ferr(r), replan_times(r));
+end
+fprintf('    Mean pre-replan error : %.5f m\n', mean(replan_ferr));
+fprintf('    Max  pre-replan error : %.5f m\n', max(replan_ferr));
+fprintf('════════════════════════════════════════════════════════════\n\n');
+
+%% ════════════════════════════════════════════════════════════════════════
+%  SANITY CHECK FLAGS
+%  ════════════════════════════════════════════════════════════════════════
+fprintf('  SANITY CHECKS:\n');
+
+% 1. Ordering: closed <= semi-open <= open
+if TATD_cl <= TATD_sol && TATD_sol <= TATD_ol
+    fprintf('  [PASS] TATD ordering correct: closed <= semi-open <= open\n');
+else
+    fprintf('  [FAIL] TATD ordering UNEXPECTED: closed=%.5f  semi=%.5f  open=%.5f\n', ...
+        TATD_cl, TATD_sol, TATD_ol);
+end
+
+% 2. Open-loop should be significantly worse
+if TATD_ol > 2 * TATD_cl
+    fprintf('  [PASS] Open-loop is significantly worse than closed-loop (%.1fx)\n', ...
+        TATD_ol / TATD_cl);
+else
+    fprintf('  [WARN] Open-loop is only %.1fx closed-loop -- may indicate short sim or small drift\n', ...
+        TATD_ol / TATD_cl);
+end
+
+% 3. Semi-open should converge back after replan (check ferr drops after each replan)
+post_replan_drops = 0;
+for r = 1:length(replan_steps)-1
+    k_before = replan_steps(r);
+    k_after  = min(k_before + round(1/P.dt), n_steps);
+    if ferr_sol(k_after) < ferr_sol(k_before)
+        post_replan_drops = post_replan_drops + 1;
+    end
+end
+if post_replan_drops == length(replan_steps) - 1
+    fprintf('  [PASS] Formation error drops after every replan (%d/%d)\n', ...
+        post_replan_drops, length(replan_steps)-1);
+else
+    fprintf('  [WARN] Formation error did not drop after %d/%d replans\n', ...
+        length(replan_steps)-1 - post_replan_drops, length(replan_steps)-1);
+end
+
+% 4. Closed-loop steady-state formation error should be near zero
+ss_ferr_cl = mean(ferr_cl(ss_start:end));
+if ss_ferr_cl < 0.05
+    fprintf('  [PASS] Closed-loop steady-state formation error is low (%.4f m)\n', ss_ferr_cl);
+else
+    fprintf('  [WARN] Closed-loop steady-state formation error is high (%.4f m) -- check cost weights\n', ss_ferr_cl);
+end
+
+fprintf('\n');
+
+%% ════════════════════════════════════════════════════════════════════════
+%  PLOTS
+%  ════════════════════════════════════════════════════════════════════════
+c_cl  = [0.80 0.20 0.20];
+c_ol  = [0.20 0.65 0.20];
+c_sol = [0.20 0.40 0.80];
+labels = {'Closed-Loop', 'Open-Loop', 'Semi-Open-Loop'};
+
+%% Figure 1: TATD Bar Chart (windowed)
+figure('Name','Fig 1: TATD Comparison','Position',[50 600 500 380]);
+TATDs = [TATD_cl, TATD_ol, TATD_sol];
+b = bar(TATDs, 'FaceColor','flat');
+b.CData = [c_cl; c_ol; c_sol];
+set(gca, 'XTickLabel', labels, 'FontSize', 11);
+ylabel('TATD (m)');
+title(sprintf('TATD — measurement from t = %.1f s', t_tatd_start));
+grid on; box on;
+for i = 1:3
+    text(i, TATDs(i)*1.02, sprintf('%.5f m', TATDs(i)), ...
+        'HorizontalAlignment','center','FontWeight','bold','FontSize',10);
+end
+
+%% Figure 2: Formation Error vs Time (all three modes)
+figure('Name','Fig 2: Formation Error vs Time','Position',[560 600 850 380]);
+plot(t_vec, ferr_cl,  'Color', c_cl,  'LineWidth', 1.8); hold on;
+plot(t_vec, ferr_ol,  'Color', c_ol,  'LineWidth', 1.8);
+plot(t_vec, ferr_sol, 'Color', c_sol, 'LineWidth', 1.8);
+
+% Mark replan events
+for r = 1:length(replan_times)
+    xline(replan_times(r), '--', 'Color', [c_sol, 0.5], 'LineWidth', 0.9);
+end
+scatter(replan_times, replan_ferr, 60, c_sol, 'v', 'filled', ...
+    'DisplayName', 'Pre-replan sample');
+
+% Mark TATD window start
+xline(t_tatd_start, 'k--', 'LineWidth', 1.2, ...
+    'Label', sprintf('TATD start (%.1fs)', t_tatd_start), ...
+    'LabelVerticalAlignment', 'bottom');
+
+xlabel('Time (s)'); ylabel('Mean Formation Error (m)');
+title('Formation Error vs Time — All Controllers');
+legend([labels, {'Replan event', 'Pre-replan sample', 'TATD window'}], ...
+    'Location','best');
+grid on; box on;
+
+%% Figure 3: Drone 1 Tracking Error vs Time
+figure('Name','Fig 3: Drone 1 Tracking Error','Position',[50 180 850 380]);
+plot(t_vec, err_cl,  'Color', c_cl,  'LineWidth', 1.8); hold on;
+plot(t_vec, err_ol,  'Color', c_ol,  'LineWidth', 1.8);
+plot(t_vec, err_sol, 'Color', c_sol, 'LineWidth', 1.8);
+xline(t_tatd_start, 'k--', 'LineWidth', 1.2, ...
+    'Label', sprintf('TATD start (%.1fs)', t_tatd_start), ...
+    'LabelVerticalAlignment','bottom');
+xlabel('Time (s)'); ylabel('Position Error Magnitude (m)');
+title('Drone 1 Tracking Error vs Time');
+legend(labels, 'Location','best');
+grid on; box on;
+
+%% Figure 4: TATD Sensitivity to Measurement Start Time
+figure('Name','Fig 4: TATD Sensitivity to Start Time','Position',[560 180 850 380]);
+subplot(2,1,1);
+plot(t_sweep, TATD_sweep_cl,  'Color', c_cl,  'LineWidth', 1.8); hold on;
+plot(t_sweep, TATD_sweep_ol,  'Color', c_ol,  'LineWidth', 1.8);
+plot(t_sweep, TATD_sweep_sol, 'Color', c_sol, 'LineWidth', 1.8);
+xline(t_tatd_start, 'k--', 'LineWidth', 1.2, 'Label', 'Current window');
+xlabel('TATD start time (s)'); ylabel('TATD (m)');
+title('TATD vs Measurement Start Time');
+legend(labels, 'Location','best');
+grid on; box on;
+
+subplot(2,1,2);
+plot(t_sweep, pct_sweep_ol,  'Color', c_ol,  'LineWidth', 1.8); hold on;
+plot(t_sweep, pct_sweep_sol, 'Color', c_sol, 'LineWidth', 1.8);
+xline(t_tatd_start, 'k--', 'LineWidth', 1.2, 'Label', 'Current window');
+yline(0, 'k-', 'LineWidth', 0.8);
+xlabel('TATD start time (s)'); ylabel('% increase vs closed-loop');
+title('TATD % Increase vs Closed-Loop — Effect of Start Time');
+legend({'Open-Loop', 'Semi-Open-Loop'}, 'Location','best');
+grid on; box on;
+
+%% Figure 5: Pre-Replan Formation Error (drift accumulation)
+figure('Name','Fig 5: Pre-Replan Drift','Position',[50 180 600 380]);
+bar(1:length(replan_times), replan_ferr, 'FaceColor', c_sol);
+xlabel('Replan cycle #');
+ylabel('Formation error immediately before replan (m)');
+title(sprintf('Pre-Replan Drift Accumulation (T_s = %.1f s)', semiOpenTime));
+xticks(1:length(replan_times));
+xticklabels(arrayfun(@(t) sprintf('%.0fs', t), replan_times, ...
+    'UniformOutput', false));
+grid on; box on;
+yline(mean(replan_ferr), 'r--', 'LineWidth', 1.5, 'Label', 'Mean');
+
+%% Figure 6: XY Formation Overlay (3 subplots)
+figure('Name','Fig 6: XY Formation Overlay','Position',[100 100 1300 450]);
+colors  = lines(P.N);
+c_dem   = [0.15 0.15 0.15];
+data_x  = {x_cl, x_ol, x_sol};
+titles_ = {'Closed-Loop', 'Open-Loop', 'Semi-Open-Loop'};
+
+for p = 1:3
+    subplot(1,3,p); hold on;
+    X = data_x{p};
+    plot(xd(:,1), xd(:,4), '--', 'Color', c_dem, 'LineWidth', 2);
+    for i = 1:P.N
+        xi = X((i-1)*10 + 1, :);
+        yi = X((i-1)*10 + 4, :);
+        plot(xi, yi, 'Color', colors(i,:), 'LineWidth', 1.2);
+        scatter(xi(1),   yi(1),   50, colors(i,:), 'o', 'filled');
+        scatter(xi(end), yi(end), 60, colors(i,:), 'd', 'filled');
+    end
+    title(titles_{p});
+    xlabel('x (m)'); ylabel('y (m)');
+    axis equal; grid on;
+    if p == 1
+        legend('Desired', 'Drone paths', 'Start', 'End', 'Location','best');
+    end
+end
+sgtitle('XY Formation Paths — All Controllers');
+
+%% ── Save Figures ─────────────────────────────────────────────────────────
+save_dir = '~/University/year4/semester1/EGH490-1/crazyflie_repo/MATLAB/plots/';
+for f = 1:6
+    saveas(figure(f), fullfile(save_dir, sprintf('diag_fig%d.png', f)));
+end
+fprintf('Plots saved to:\n  %s\n', save_dir);
+
+%% ════════════════════════════════════════════════════════════════════════
+%  LOCAL FUNCTIONS
+%  ════════════════════════════════════════════════════════════════════════
+
+
+
+function ferr = computeFormationError(X, xd, N, n_steps)
+    ferr = zeros(1, n_steps);
+    for k = 1:n_steps
+        err_sum = 0;
+        for i = 1:N
+            pos_idx  = [(i-1)*10+1, (i-1)*10+4, (i-1)*10+7];
+            actual   = X(pos_idx, k);
+            desired  = xd(k, pos_idx)';
+            err_sum  = err_sum + norm(actual - desired);
+        end
+        ferr(k) = err_sum / N;
+    end
+end
