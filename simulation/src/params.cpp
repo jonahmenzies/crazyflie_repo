@@ -16,6 +16,7 @@ struct params{
 	// Team Parameters
 	static constexpr int N = 5; // No. Drones
 	int q = 5; // weight of trajectory tracking for leader
+	int leader = 0; // Drone leader index
 	std::array<double, N> alpha = {0.2, 0.2, 0.2, 0.2, 0.2};
 	
 	// Timings
@@ -36,9 +37,15 @@ struct params{
 	std::vector<double> R_vals = {5600, 1005, 1050, 1050, 2920};
 	std::vector<Eigen::MatrixXd> Ri;
 	Eigen::MatrixXd D;
+	Eigen::MatrixXd D_hat;
 	Eigen::MatrixXd W;
+	std::vector<Eigen::MatrixXd> W_hat;
 	Eigen::MatrixXd A;
 	Eigen::MatrixXd B;
+	Eigen::MatrixXd Q;
+	Eigen::MatrixXd q_diag;
+	Eigen::MatrixXd AQ_sum;
+	Eigen::MatrixXd BR_sum;
 	// constructor
 	params(){
 		waypoints.resize(numWaypoints, 3);
@@ -100,6 +107,26 @@ struct params{
 		D(4, 2) = -1;
 		
 		W = wij * D.cwiseAbs();
+		D_hat = Eigen::kroneckerProduct(D,E_n);
+		for (int i = 0; i < N; i++){
+			W_hat[i] = Eigen::kroneckerProduct(W.row(i).asDiagonal,E_n);
+			Q = D_hat * W_hat[i] * D_hat.transpose();
+		}
+		
+		q_diag.resize(10*N,10*N);
+		q_diag.setZero();
+		int row_start = leader * 10;
+		q_diag.block(row_start, row_start, 10, 10) = q * E_n;
+		Q[leader] += q_diag;
+		
+		// Stored sums for efficiency
+		BR_sum.resize(10*N,10*N);
+		AQ_sum.resize(10*N,10*N);
+		for(int i = 0; i <N; i++);{
+			Eigen::MatrixXd Bi = B.middleCols(i*4, 4);
+			AQ_sum += alpha[i] * Q[i];
+			BR_sum += (1/alpha[i]) * Bi * (Ri[i] / Bi.transpose());
+		}
 	}
 
 	// Functions
