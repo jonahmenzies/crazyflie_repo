@@ -10,3 +10,4 @@ __pycache__/
 *.pdf
 !docs/**/*.pdf
 MATLAB/plots/formation_animation.avi
+MATLAB/plots/formation_animation.avi
