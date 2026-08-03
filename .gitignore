@@ -9,3 +9,4 @@ __pycache__/
 *.png
 *.pdf
 !docs/**/*.pdf
+MATLAB/plots/formation_animation.avi

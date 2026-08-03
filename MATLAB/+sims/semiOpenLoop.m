@@ -25,8 +25,8 @@ function [x_sol, u_sol, TATD_sol] = semiOpenLoop(sys, ric, replan_interval)
     tT     = ric.tT;    n_steps = ric.n_steps;
 
     replan_steps  = round(replan_interval / dt);
-    replan_starts = t0 : replan_interval : tT - dt;
-    n_intervals   = length(replan_starts);
+    n_intervals   = floor((tT - t0) / (replan_steps * dt)) + 1;
+    replan_starts = (0:n_intervals-1) * replan_steps * dt;
 
     %-- Pre-compute c and e for every replan interval (offline) -------
     t_c_all = cell(n_intervals, 1);
@@ -75,7 +75,8 @@ function [x_sol, u_sol, TATD_sol] = semiOpenLoop(sys, ric, replan_interval)
         s_k   = utils.lookupMatrix(t_k,   t_s,           s_store);
         p_k   = interp1(t_p, p_store, t_k, 'linear', 'extrap')';
         c_k   = utils.lookupMatrix(t_tau, t_c_all{r_idx}, c_all{r_idx});
-        e_k   = interp1(t_e_all{r_idx}, e_all{r_idx}, t_tau, 'linear', 'extrap')';
+        t_tau_clamped = min(t_tau, t_e_all{r_idx}(end));
+        e_k = interp1(t_e_all{r_idx}, e_all{r_idx}, t_tau_clamped, 'linear')';
 
         x_hat      = c_k*x0_plan + e_k;
         u_k        = utils.computeControl(x_hat, s_k, p_k, B, Ri, alpha, N, m, g);

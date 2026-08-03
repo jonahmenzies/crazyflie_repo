@@ -1,90 +1,115 @@
-    %%  Formation Control -- Controller Comparison with Diagnostics
+%%  Formation Control -- Controller Comparison
 %   Cooperative differential game theory - Jiang et al. (2020)
 %
 %   Compares Closed-Loop, Open-Loop, and Semi-Open-Loop controllers.
-%   Uses correct TATD (RMS, all drones, per Jiang Eq.11) and
-%   formation error measured against xd (not pairwise distances).
+%   Sole error metric: TATD (RMS, Jiang Eq.11) over the LAST 20% of the
+%   simulation.
+%
+%   Headline result: TATD20 vs semi-open-loop replan interval, showing
+%   the accuracy-vs-comms-overhead tradeoff. Supporting evidence: near4
+%   the end of the horizon (t -> tT), the closed-loop feedback matrix
+%   loses stability margin as the Riccati gain S(t) decays, which
+%   explains why long replan intervals landing close to tT degrade badly.
 %
 clc; clear all; close all;
 
-%% ── Config ─────────────────  ───────────────────────────────────────────────
-semiOpenTime = 5.0;     % Semi-open-loop replan interval (s)
+%% ── Config ─────────────────────────────────────────────────────────────
+replanTimes = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,65.5];   % s, semi-open-loop replan intervals to sweep
+ss_frac     = 0.2;                                 % TATD20 measurement window: last 20% of sim
+panel_idx   = [1, 3, 6, 9];                         % replanTimes indices shown in the formation small-multiples
 
 %% ── Parameters & Riccati ─────────────────────────────────────────────────
 P = sims.params();
 
-fprintf('[1/4] Running Riccati solver...\n');
-sims.riccatiSolver();
+fprintf('[1/3] Running Riccati solver...\n');
+sims.riccatiSolver(P);
 ric = load('riccati_solution.mat');
 
 N       = P.N;
 dt      = P.dt;
+A       = P.A;
 xd      = ric.xd;
 n_steps = ric.n_steps;
 t_vec   = (0 : n_steps-1) * dt;
+t_s     = ric.t_s;
+s_store = ric.s_store;
+sum_BR  = ric.sum_BR;
 
-%% ── Run Simulations ──────────────────────────────────────────────────────
-fprintf('[2/4] Closed-loop...\n');
+skip_steps = round((1 - ss_frac) * n_steps);   % window start index
+
+pos_idx = build_state_idx(N, [1, 4, 7]);   % flat position-state indices across all N drones
+
+%% ── Run Closed-Loop & Open-Loop (independent of replan interval) ─────────
+fprintf('[2/3] Closed-loop...\n');
 [x_cl,  u_cl]  = sims.closedLoop(P, ric);
 
-fprintf('[3/4] Open-loop...\n');
+fprintf('[3/3] Open-loop...\n');
 [x_ol,  u_ol]  = sims.openLoop(P, ric);
 
-fprintf('[4/4] Semi-open-loop (replan = %.1f s)...\n', semiOpenTime);
-[x_sol, u_sol] = sims.semiOpenLoop(P, ric, semiOpenTime);
+TATD20_cl = computeTATD_lastFrac(x_cl, xd, pos_idx, N, n_steps, ss_frac);
+TATD20_ol = computeTATD_lastFrac(x_ol, xd, pos_idx, N, n_steps, ss_frac);
 
-%% ── TATD (Jiang Eq. 11, RMS all drones, skip first 10s) ─────────────────
-TATD_cl  = computeTATD(x_cl,  xd, N, n_steps, dt);
-TATD_ol  = computeTATD(x_ol,  xd, N, n_steps, dt);
-TATD_sol = computeTATD(x_sol, xd, N, n_steps, dt);
+%% ── Sweep Semi-Open-Loop Across Replan Intervals ─────────────────────────
+n_intervals = length(replanTimes);
+TATD20_sol  = zeros(1, n_intervals);
+x_sol_all   = cell(1, n_intervals);
 
-ol_pct  = ((TATD_ol  - TATD_cl) / TATD_cl) * 100;
-sol_pct = ((TATD_sol - TATD_cl) / TATD_cl) * 100;
-
-%% ── Formation Error vs Time (all drones vs xd) ───────────────────────────
-ferr_cl  = computeFormationError(x_cl,  xd, N, n_steps);
-ferr_ol  = computeFormationError(x_ol,  xd, N, n_steps);
-ferr_sol = computeFormationError(x_sol, xd, N, n_steps);
-
-%% ── Drone 1 Tracking Error vs Time ──────────────────────────────────────
-pos_idx = [1, 4, 7];
-err_cl  = vecnorm(x_cl(pos_idx,:)  - xd(:, pos_idx)', 2, 1);
-err_ol  = vecnorm(x_ol(pos_idx,:)  - xd(:, pos_idx)', 2, 1);
-err_sol = vecnorm(x_sol(pos_idx,:) - xd(:, pos_idx)', 2, 1);
-
-%% ── Pre-Replan Drift (semi-open-loop) ────────────────────────────────────
-replan_times = semiOpenTime : semiOpenTime : t_vec(end);
-replan_ferr  = zeros(size(replan_times));
-for r = 1:length(replan_times)
-    k = find(t_vec >= replan_times(r), 1) - 1;
-    if isempty(k) || k < 1, k = 1; end
-    replan_ferr(r) = ferr_sol(k);
+for idx = 1:n_intervals
+    Ts = replanTimes(idx);
+    fprintf('  Semi-open-loop replan = %.2f s (%d/%d)...\n', Ts, idx, n_intervals);
+    [x_sol, ~] = sims.semiOpenLoop(P, ric, Ts);
+    x_sol_all{idx} = x_sol;
+    TATD20_sol(idx) = computeTATD_lastFrac(x_sol, xd, pos_idx, N, n_steps, ss_frac);
 end
 
-%% ── TATD Sensitivity: sweep measurement start time ──────────────────────
-skip_sweep   = 0 : round(1/dt) : round(n_steps/2);
-TATD_sw_cl   = zeros(size(skip_sweep));
-TATD_sw_ol   = zeros(size(skip_sweep));
-TATD_sw_sol  = zeros(size(skip_sweep));
+diff_sol  = TATD20_sol - TATD20_cl;
+pct_sol   = (diff_sol / TATD20_cl) * 100;
+n_replans = ceil(t_vec(end) ./ replanTimes);       % comms-count proxy
 
-for s = 1:length(skip_sweep)
-    sk = skip_sweep(s);
-    NT = n_steps - sk;
-    if NT < 2, break; end
-    TATD_sw_cl(s)  = computeTATD_fromSkip(x_cl,  xd, N, n_steps, dt, sk);
-    TATD_sw_ol(s)  = computeTATD_fromSkip(x_ol,  xd, N, n_steps, dt, sk);
-    TATD_sw_sol(s) = computeTATD_fromSkip(x_sol, xd, N, n_steps, dt, sk);
+[~, idx_shortest] = min(replanTimes);
+[~, idx_blowup]    = max(TATD20_sol);              % worst-performing interval, whichever it is
+
+% Selection for the 4-interval window-split comparison (Fig 7):
+% first time slot, last "good" interval, first "bad" interval, last slot
+bad_threshold_pct = 10;   % %% increase vs closed-loop that counts as "bad" -- adjust as needed
+idx_first_slot = 1;
+idx_last_slot  = n_intervals;
+idx_first_bad  = find(pct_sol > bad_threshold_pct, 1, 'first');
+if isempty(idx_first_bad)
+    idx_first_bad = n_intervals;
+end
+idx_last_good = max(idx_first_bad - 1, 1);
+sel_idx = [idx_first_slot, idx_last_good, idx_first_bad, idx_last_slot];
+sel_tag = {'first slot', 'last good', 'first bad', 'last slot'};
+[sel_idx, keep_pos] = unique(sel_idx, 'stable');   % de-dup while preserving order
+sel_tag = sel_tag(keep_pos);
+
+%% ── Instantaneous (unwindowed) TATD vs time ───────────────────────────────
+TATDt_cl      = computeTATD_instantaneous(x_cl,                    xd, pos_idx, N, n_steps);
+TATDt_ol      = computeTATD_instantaneous(x_ol,                    xd, pos_idx, N, n_steps);
+TATDt_sol     = computeTATD_instantaneous(x_sol_all{idx_shortest}, xd, pos_idx, N, n_steps);
+TATDt_blowup  = computeTATD_instantaneous(x_sol_all{idx_blowup},   xd, pos_idx, N, n_steps);
+
+%% ── Stability diagnostics near tT ─────────────────────────────────────────
+%  Checks whether TATD degradation near the end of the horizon is
+%  explained by weakening Riccati feedback (S(t) decaying toward tT).
+n_diag     = length(t_s);
+S_norm     = zeros(1, n_diag);
+S_mineig   = zeros(1, n_diag);
+cl_maxreal = zeros(1, n_diag);   % max real part of eig(A - sum_BR*S(t))
+
+for j = 1:n_diag
+    Sj = s_store(:,:,j);
+    S_norm(j)     = norm(Sj);
+    S_mineig(j)   = min(eig((Sj+Sj')/2));   % symmetrised, in case of fp asymmetry
+    cl_maxreal(j) = max(real(eig(A - sum_BR*Sj)));
 end
 
-t_sweep   = skip_sweep * dt;
-pct_sw_ol  = ((TATD_sw_ol  - TATD_sw_cl) ./ TATD_sw_cl) * 100;
-pct_sw_sol = ((TATD_sw_sol - TATD_sw_cl) ./ TATD_sw_cl) * 100;
-
-%% ── Steady-state window (last 20% of sim) ────────────────────────────────
-ss_start     = round(0.8 * n_steps);
-ss_ferr_cl   = mean(ferr_cl(ss_start:end));
-ss_ferr_ol   = mean(ferr_ol(ss_start:end));
-ss_ferr_sol  = mean(ferr_sol(ss_start:end));
+%% ── Instantaneous TATD for the 4 selected replan intervals ────────────────
+TATDt_sel = zeros(numel(sel_idx), n_steps);
+for si = 1:numel(sel_idx)
+    TATDt_sel(si,:) = computeTATD_instantaneous(x_sol_all{sel_idx(si)}, xd, pos_idx, N, n_steps);
+end
 
 %% ════════════════════════════════════════════════════════════════════════
 %  TERMINAL REPORT
@@ -92,70 +117,52 @@ ss_ferr_sol  = mean(ferr_sol(ss_start:end));
 fprintf('\n════════════════════════════════════════════════════════════\n');
 fprintf('  SIMULATION DIAGNOSTIC REPORT\n');
 fprintf('════════════════════════════════════════════════════════════\n');
-fprintf('  Semi-open-loop replan interval : %.1f s\n',  semiOpenTime);
-fprintf('  TATD skip (first N seconds)    : 5 s  (hardcoded in computeTATD)\n');
+fprintf('  TATD measurement window        : last %.0f%% of sim (t > %.2f s)\n', ss_frac*100, skip_steps*dt);
 fprintf('  Total simulation time          : %.2f s\n', t_vec(end));
 fprintf('  Number of drones               : %d\n',     N);
 fprintf('────────────────────────────────────────────────────────────\n');
-fprintf('  %-20s  %10s  %14s\n', 'Controller', 'TATD (m)', '% vs Closed');
-fprintf('  %-20s  %10.6f  %14s\n',   'Closed-Loop',    TATD_cl,  '--');
-fprintf('  %-20s  %10.6f  %13.2f%%\n', 'Open-Loop',    TATD_ol,  ol_pct);
-fprintf('  %-20s  %10.6f  %13.2f%%\n', 'Semi-Open-Loop', TATD_sol, sol_pct);
+fprintf('  %-20s  %12.6f m\n', 'Closed-Loop TATD20', TATD20_cl);
+fprintf('  %-20s  %12.6f m\n', 'Open-Loop TATD20',   TATD20_ol);
 fprintf('────────────────────────────────────────────────────────────\n');
-fprintf('  Steady-state formation error (last 20%% of sim):\n');
-fprintf('    Closed-Loop    : %.5f m\n', ss_ferr_cl);
-fprintf('    Open-Loop      : %.5f m\n', ss_ferr_ol);
-fprintf('    Semi-Open-Loop : %.5f m\n', ss_ferr_sol);
-fprintf('────────────────────────────────────────────────────────────\n');
-fprintf('  Pre-replan formation error (semi-open-loop):\n');
-fprintf('    %-10s  %s\n', 'Time (s)', 'Formation Error (m)');
-for r = 1:length(replan_times)
-    fprintf('    %-10.1f  %.5f m\n', replan_times(r), replan_ferr(r));
+fprintf('  Semi-Open-Loop TATD20 vs Replan Interval:\n');
+fprintf('  %-10s  %10s  %12s  %16s  %12s\n', 'Replan(s)', '# replans', 'TATD20 (m)', 'Diff vs Closed(m)', '%% vs Closed');
+for idx = 1:n_intervals
+    fprintf('  %-10.2f  %10d  %12.6f  %+16.6f  %+11.2f%%\n', ...
+        replanTimes(idx), n_replans(idx), TATD20_sol(idx), diff_sol(idx), pct_sol(idx));
 end
-post_transient = replan_ferr(replan_ferr < 0.5);
-fprintf('    Mean (excl. transient) : %.5f m\n', mean(post_transient));
-fprintf('    Max  (excl. transient) : %.5f m\n', max(post_transient));
+fprintf('────────────────────────────────────────────────────────────\n');
+fprintf('  STABILITY DIAGNOSTIC (near tT):\n');
+fprintf('  max real(eig(A - sum_BR*S)) at t=tT       : %+.6f\n', cl_maxreal(end));
+fprintf('  max real(eig(A - sum_BR*S)) at t=tT-5s     : %+.6f\n', ...
+    cl_maxreal(find(t_s <= t_s(end)-5, 1, 'last')));
+if cl_maxreal(end) > 0
+    fprintf('  [FLAG] Closed-loop matrix is UNSTABLE at t=tT -- feedback authority has collapsed\n');
+elseif cl_maxreal(end) > cl_maxreal(1)
+    fprintf('  [INFO] Stability margin shrinks toward tT (expected for finite-horizon Riccati)\n');
+end
 fprintf('════════════════════════════════════════════════════════════\n\n');
 
 %% ── Sanity Checks ────────────────────────────────────────────────────────
 fprintf('  SANITY CHECKS:\n');
 
-% 1. TATD ordering
-if TATD_cl <= TATD_sol && TATD_sol <= TATD_ol
-    fprintf('  [PASS] TATD ordering correct: closed <= semi-open <= open\n');
+if all(diff(TATD20_sol) >= -1e-6)
+    fprintf('  [PASS] Semi-open TATD20 increases monotonically with replan interval\n');
 else
-    fprintf('  [FAIL] TATD ordering wrong: closed=%.5f  semi=%.5f  open=%.5f\n', ...
-        TATD_cl, TATD_sol, TATD_ol);
+    fprintf('  [WARN] Semi-open TATD20 is not monotonic across replan intervals -- check for noise or bugs\n');
 end
 
-% 2. Open-loop significantly worse
-ratio = TATD_ol / TATD_cl;
+[~, best_idx] = min(TATD20_sol);
+if replanTimes(best_idx) == min(replanTimes)
+    fprintf('  [PASS] Shortest replan interval (%.2fs) gives lowest semi-open TATD20, as expected\n', replanTimes(best_idx));
+else
+    fprintf('  [WARN] Best TATD20 was NOT at the shortest replan interval -- unexpected, check sim\n');
+end
+
+ratio = TATD20_ol / TATD20_cl;
 if ratio > 5
     fprintf('  [PASS] Open-loop is significantly worse than closed-loop (%.1fx)\n', ratio);
 else
     fprintf('  [WARN] Open-loop is only %.1fx closed-loop -- check sim length or drift\n', ratio);
-end
-
-% 3. Closed-loop steady-state formation error acceptable
-if ss_ferr_cl < 0.15
-    fprintf('  [PASS] Closed-loop steady-state formation error acceptable (%.4f m)\n', ss_ferr_cl);
-else
-    fprintf('  [WARN] Closed-loop steady-state formation error is %.4f m -- check cost weights\n', ss_ferr_cl);
-end
-
-% 4. Semi-open steady-state matches closed-loop
-ss_ratio = ss_ferr_sol / ss_ferr_cl;
-if ss_ratio < 3.0
-    fprintf('  [PASS] Semi-open steady-state formation error close to closed-loop (%.2fx)\n', ss_ratio);
-else
-    fprintf('  [WARN] Semi-open steady-state is %.2fx closed-loop -- large replan interval?\n', ss_ratio);
-end
-
-% 5. Post-transient pre-replan drift is bounded
-if mean(post_transient) < 0.2
-    fprintf('  [PASS] Post-transient pre-replan drift bounded (mean = %.4f m)\n', mean(post_transient));
-else
-    fprintf('  [WARN] Post-transient pre-replan drift is high (mean = %.4f m)\n', mean(post_transient));
 end
 
 fprintf('\n');
@@ -166,128 +173,166 @@ fprintf('\n');
 c_cl  = [0.80 0.20 0.20];
 c_ol  = [0.20 0.65 0.20];
 c_sol = [0.20 0.40 0.80];
-labels = {'Closed-Loop', 'Open-Loop', 'Semi-Open-Loop'};
-t_skip_line = 10.0;   % matches hardcoded skip in computeTATD
 
-%% Figure 1: TATD Bar Chart
-figure('Name','Fig 1: TATD','Position',[50 600 500 380]);
-TATDs = [TATD_cl, TATD_ol, TATD_sol];
-b = bar(TATDs, 'FaceColor','flat');
-b.CData = [c_cl; c_ol; c_sol];
-set(gca, 'XTickLabel', labels, 'FontSize', 11);
-ylabel('TATD (m)');
-title('TATD Comparison (Jiang Eq. 11, skip first 10 s)');
-grid on; box on;
-for i = 1:3
-    text(i, TATDs(i) + max(TATDs)*0.02, sprintf('%.5f m', TATDs(i)), ...
-        'HorizontalAlignment','center','FontWeight','bold','FontSize',10);
-end
+%% Figure 1: TATD20 vs Replan Interval, dual-axis (HEADLINE RESULT)
+%  Left axis: absolute TATD20. Right axis: % increase vs closed-loop.
+%  Top secondary axis: comms count (replans over the full sim).
+fig1 = figure('Name','Fig 1: TATD20 vs Replan Interval','Position',[50 600 850 480]);
+ax1 = axes(fig1); hold(ax1,'on');
 
-%% Figure 2: Formation Error vs Time
-figure('Name','Fig 2: Formation Error','Position',[560 600 900 400]);
-plot(t_vec, ferr_cl,  'Color', c_cl,  'LineWidth', 1.8); hold on;
-plot(t_vec, ferr_ol,  'Color', c_ol,  'LineWidth', 1.8);
-plot(t_vec, ferr_sol, 'Color', c_sol, 'LineWidth', 1.8);
+yyaxis(ax1,'left');
+plot(ax1, replanTimes, TATD20_sol, '-o', 'Color', c_sol, 'LineWidth', 2, 'MarkerFaceColor', c_sol);
+yline(ax1, TATD20_cl, '--', 'Color', c_cl, 'LineWidth', 1.8, 'Label', 'Closed-Loop TATD20');
+ylabel(ax1, 'TATD20 (m)');
 
-for r = 1:length(replan_times)
-    xline(replan_times(r), '--', 'Color', [c_sol, 0.35], 'LineWidth', 0.8);
-end
-scatter(replan_times, replan_ferr, 50, c_sol, 'v', 'filled');
-xline(t_skip_line, 'k--', 'LineWidth', 1.4, ...
-    'Label', sprintf('TATD window start (%.0fs)', t_skip_line), ...
-    'LabelVerticalAlignment','bottom');
+yyaxis(ax1,'right');
+plot(ax1, replanTimes, pct_sol, ':s', 'Color', [0.4 0.4 0.4], 'LineWidth', 1.4, 'MarkerFaceColor', [0.4 0.4 0.4]);
+ylabel(ax1, '%% increase vs closed-loop');
 
-xlabel('Time (s)'); ylabel('Mean Formation Error (m)');
-title('Formation Error vs Time — All Controllers');
-legend([labels, {'Replan event', 'Pre-replan sample'}], 'Location','northeast');
-grid on; box on;
+xlabel(ax1, 'Semi-open-loop replan interval (s)');
+title(ax1, 'TATD20 vs Communication Update Interval');
+legend(ax1, {'Semi-Open-Loop TATD20', 'Closed-Loop (reference)', '%% vs Closed-Loop'}, 'Location','northwest');
+grid(ax1,'on'); box(ax1,'on');
 
-%% Figure 3: Drone 1 Tracking Error vs Time
-figure('Name','Fig 3: Drone 1 Tracking Error','Position',[50 180 900 400]);
-plot(t_vec, err_cl,  'Color', c_cl,  'LineWidth', 1.8); hold on;
-plot(t_vec, err_ol,  'Color', c_ol,  'LineWidth', 1.8);
-plot(t_vec, err_sol, 'Color', c_sol, 'LineWidth', 1.8);
-xline(t_skip_line, 'k--', 'LineWidth', 1.4, ...
-    'Label', sprintf('TATD window start (%.0fs)', t_skip_line), ...
-    'LabelVerticalAlignment','bottom');
-xlabel('Time (s)'); ylabel('Position Error Magnitude (m)');
-title('Drone 1 Tracking Error vs Time');
-legend(labels, 'Location','northeast');
+ax1_top = axes('Position', ax1.Position, 'XAxisLocation','top', 'YAxisLocation','right', ...
+    'Color','none', 'YTick', [], 'XLim', ax1.XLim);
+ax1_top.XTick = replanTimes;
+ax1_top.XTickLabel = arrayfun(@(n) sprintf('%d', n), n_replans, 'UniformOutput', false);
+xlabel(ax1_top, 'Number of replans over full sim (comms count)');
+
+%% Figure 2: Instantaneous TATD vs time (full horizon) — transient shape
+figure('Name','Fig 2: Instantaneous TATD vs Time','Position',[900 600 850 420]);
+plot(t_vec, TATDt_cl,  '-', 'Color', c_cl,  'LineWidth', 1.3); hold on;
+plot(t_vec, TATDt_ol,  '-', 'Color', c_ol,  'LineWidth', 1.3);
+plot(t_vec, TATDt_sol, '-', 'Color', c_sol, 'LineWidth', 1.3);
+xlabel('Time (s)'); ylabel('Instantaneous TATD (m)');
+title('Instantaneous Tracking Deviation Over Time');
+legend({'Closed-Loop', 'Open-Loop', ...
+        sprintf('Semi-Open (%.1fs)', replanTimes(idx_shortest))}, 'Location','best');
 grid on; box on;
 
-%% Figure 4: TATD Sensitivity to Measurement Start Time
-figure('Name','Fig 4: TATD Sensitivity','Position',[560 180 900 420]);
-subplot(2,1,1);
-plot(t_sweep, TATD_sw_cl,  'Color', c_cl,  'LineWidth', 1.8); hold on;
-plot(t_sweep, TATD_sw_ol,  'Color', c_ol,  'LineWidth', 1.8);
-plot(t_sweep, TATD_sw_sol, 'Color', c_sol, 'LineWidth', 1.8);
-xline(t_skip_line, 'k--', 'LineWidth', 1.2, 'Label', 'Current skip');
-ylabel('TATD (m)');
-title('TATD vs Measurement Start Time');
-legend(labels, 'Location','northeast');
-grid on; box on;
-
-subplot(2,1,2);
-plot(t_sweep, pct_sw_ol,  'Color', c_ol,  'LineWidth', 1.8); hold on;
-plot(t_sweep, pct_sw_sol, 'Color', c_sol, 'LineWidth', 1.8);
-xline(t_skip_line, 'k--', 'LineWidth', 1.2, 'Label', 'Current skip');
-yline(0, 'k-', 'LineWidth', 0.8);
-xlabel('Measurement start time (s)');
-ylabel('% increase vs closed-loop');
-title('TATD % Increase vs Closed-Loop — Effect of Start Time');
-legend({'Open-Loop', 'Semi-Open-Loop'}, 'Location','northeast');
-grid on; box on;
-
-%% Figure 5: Pre-Replan Drift Bar Chart
-figure('Name','Fig 5: Pre-Replan Drift','Position',[50 180 650 380]);
-bar(1:length(replan_times), replan_ferr, 'FaceColor', c_sol);
-xlabel('Replan cycle');
-ylabel('Formation error before replan (m)');
-title(sprintf('Pre-Replan Drift Accumulation  (T_s = %.1f s)', semiOpenTime));
-xticks(1:length(replan_times));
-xticklabels(arrayfun(@(t) sprintf('%.0fs', t), replan_times, 'UniformOutput', false));
-yline(mean(replan_ferr), 'r--', 'LineWidth', 1.5, 'Label', 'Mean (all)');
-yline(mean(post_transient), 'b--', 'LineWidth', 1.5, 'Label', 'Mean (post-transient)');
-grid on; box on;
-
-%% Figure 6: XY Formation Overlay
-figure('Name','Fig 6: XY Formation Overlay','Position',[100 100 1350 460]);
+%% Figure 3: XY Formation Overlay — small multiples across replan intervals
+n_panels = numel(panel_idx) + 2;
+figure('Name','Fig 3: XY Formation Overlay','Position',[50 50 1500 700]);
 colors_d = lines(N);
 c_dem    = [0.15 0.15 0.15];
-data_x   = {x_cl, x_ol, x_sol};
-titles_  = {'Closed-Loop', 'Open-Loop', 'Semi-Open-Loop'};
 
-for p = 1:3
-    subplot(1,3,p); hold on;
+data_x  = [{x_cl, x_ol}, x_sol_all(panel_idx)];
+titles_ = [{'Closed-Loop', 'Open-Loop'}, ...
+    arrayfun(@(i) sprintf('Semi-Open (%.1fs)', replanTimes(i)), panel_idx, 'UniformOutput', false)];
+
+n_cols = 3;
+n_rows = ceil(n_panels / n_cols);
+for p = 1:n_panels
+    subplot(n_rows, n_cols, p); hold on;
     X = data_x{p};
     plot(xd(:,1), xd(:,4), '--', 'Color', c_dem, 'LineWidth', 2);
     for i = 1:N
         xi = X((i-1)*10 + 1, :);
         yi = X((i-1)*10 + 4, :);
-        plot(xi, yi, 'Color', colors_d(i,:), 'LineWidth', 1.2);
-        scatter(xi(1),   yi(1),   50, colors_d(i,:), 'o', 'filled');
-        scatter(xi(end), yi(end), 60, colors_d(i,:), 'd', 'filled');
+        plot(xi, yi, 'Color', colors_d(i,:), 'LineWidth', 1.0);
+        scatter(xi(1),   yi(1),   40, colors_d(i,:), 'o', 'filled');
+        scatter(xi(end), yi(end), 50, colors_d(i,:), 'd', 'filled');
     end
-    title(titles_{p}); xlabel('x (m)'); ylabel('y (m)');
+    title(titles_{p}, 'FontSize', 10); xlabel('x (m)'); ylabel('y (m)');
     axis equal; grid on;
     if p == 1
-        legend('Desired','Drone paths','Start','End','Location','best');
+        legend('Desired','Drone paths','Start','End','Location','best','FontSize',7);
     end
 end
-sgtitle('XY Formation Paths — All Controllers');
+sgtitle('XY Formation Paths Across Controllers / Replan Intervals');
 
+%% Figure 4: Riccati gain S(t) decay toward tT
+figure('Name','Fig 4: S(t) Decay Near Horizon End','Position',[900 50 850 420]);
+subplot(1,2,1);
+plot(t_s, S_norm, '-', 'Color', c_sol, 'LineWidth', 1.6);
+xlabel('t (s)'); ylabel('||S(t)||');
+title('Riccati Gain Magnitude Over Horizon');
+grid on; box on;
+
+subplot(1,2,2);
+plot(t_s, S_mineig, '-', 'Color', c_sol, 'LineWidth', 1.6); hold on;
+yline(0, 'k--', 'LineWidth', 1);
+xlabel('t (s)'); ylabel('min eig(S(t))');
+title('Riccati Gain Definiteness Over Horizon');
+grid on; box on;
+sgtitle('Checking Whether Feedback Gain Weakens Near t_T');
+
+%% Figure 5: Closed-loop stability margin (A - sum_BR*S(t)) near tT
+figure('Name','Fig 5: Closed-Loop Eigenvalue Trend','Position',[50 550 850 420]);
+plot(t_s, cl_maxreal, '-o', 'Color', c_cl, 'LineWidth', 1.6, 'MarkerSize', 3); hold on;
+yline(0, 'k--', 'LineWidth', 1.2, 'Label', 'Stability boundary');
+xlabel('t (s)'); ylabel('max real(eig(A - sum\_BR \cdot S(t)))');
+title('Closed-Loop Stability Margin Approaching t_T');
+grid on; box on;
+zoom_start = t_s(1) + 0.8*(t_s(end)-t_s(1));
+axes('Position',[0.62 0.6 0.28 0.28]); box on;
+mask = t_s >= zoom_start;
+plot(t_s(mask), cl_maxreal(mask), '-o', 'Color', c_cl, 'LineWidth', 1.4, 'MarkerSize', 3); hold on;
+yline(0,'k--');
+title('Last 20%% of horizon', 'FontSize', 8);
+grid on;
+
+%% Figure 6: Instantaneous TATD, zoomed on last 20% — closed vs shortest vs worst
+%  Key evidence figure: at short replan intervals, semi-open tracks
+%  closed-loop almost exactly; at the worst interval it diverges smoothly
+%  as the horizon end approaches (consistent with Figs 4-5).
+figure('Name','Fig 6: Zoomed TATD Near Horizon End','Position',[900 550 850 420]);
+zoom_mask = t_vec >= (1-ss_frac)*t_vec(end);
+plot(t_vec(zoom_mask), TATDt_cl(zoom_mask),     '-', 'Color', c_cl,  'LineWidth', 1.6); hold on;
+plot(t_vec(zoom_mask), TATDt_sol(zoom_mask),    '-', 'Color', c_sol, 'LineWidth', 1.4);
+plot(t_vec(zoom_mask), TATDt_blowup(zoom_mask), '-', 'Color', [0.10 0.10 0.10], 'LineWidth', 1.4);
+xlabel('Time (s)'); ylabel('Instantaneous TATD (m)');
+title(sprintf('Tracking Deviation in Final %.0f%% of Horizon', ss_frac*100));
+legend({'Closed-Loop', ...
+    sprintf('Semi-Open (%.1fs, shortest)', replanTimes(idx_shortest)), ...
+    sprintf('Semi-Open (%.1fs, worst)', replanTimes(idx_blowup))}, 'Location','best');
+grid on; box on;
+
+%% Figure 7: Instantaneous TATD, Layered, for Specific Replan Intervals
+%  Fixed selection: 1s, 14s, 15s, 20s, 30s, 60s -- edit desired_times to change.
+%  Uses x_sol_all already in the workspace, no re-sweep needed.
+desired_times = [1, 14, 15, 20, 30, 60];
+
+sel_idx = zeros(1, numel(desired_times));
+for k = 1:numel(desired_times)
+    match = find(abs(replanTimes - desired_times(k)) < 1e-6, 1);
+    if isempty(match)
+        error('Requested replan time %.2fs not found in replanTimes.', desired_times(k));
+    end
+    sel_idx(k) = match;
+end
+sel_tag = arrayfun(@(t) sprintf('%gs', t), desired_times, 'UniformOutput', false);
+
+TATDt_sel = zeros(numel(sel_idx), n_steps);
+for si = 1:numel(sel_idx)
+    TATDt_sel(si,:) = computeTATD_instantaneous(x_sol_all{sel_idx(si)}, xd, pos_idx, N, n_steps);
+end
+
+sel_colors = lines(numel(sel_idx));
+
+figure('Name','Fig 7: Instantaneous TATD, Selected Intervals','Position',[50 50 950 480]);
+hold on;
+for si = 1:numel(sel_idx)
+    plot(t_vec, TATDt_sel(si,:), '-', 'Color', sel_colors(si,:), 'LineWidth', 1.5);
+end
+xline(0.2*t_vec(end), '--', 'Color', [0.3 0.3 0.3], 'LineWidth', 1.2, 'Label', 'First 20%%');
+xline(0.8*t_vec(end), '--', 'Color', [0.3 0.3 0.3], 'LineWidth', 1.2, 'Label', 'Last 20%%');
+xlabel('Time (s)'); ylabel('Instantaneous TATD (m)');
+title('Instantaneous TATD for Selected Replan Intervals');
+legend(arrayfun(@(i) sprintf('%s', sel_tag{i}), 1:numel(sel_idx), 'UniformOutput', false), 'Location','northwest');
+grid on; box on;
 %% ── Save Figures ─────────────────────────────────────────────────────────
 save_dir = '~/University/year4/semester1/EGH490-1/crazyflie_repo/MATLAB/plots/';
 
-% Report figures -- names match \includegraphics in LaTeX
-% Figures 3 and 5 are diagnostic only, saved with diag_ prefix
 fig_map = { ...
-    1, 'tatd_comparison';  ...   % TATD bar chart
-    2, 'formation_error';  ...   % Formation error vs time
-    3, 'diag_fig3';        ...   % Drone 1 tracking error (diagnostic)
-    4, 'tatd_sensitivity'; ...   % TATD sensitivity sweep
-    5, 'diag_fig5';        ...   % Pre-replan drift (diagnostic)
-    6, 'xy_trajectory'     };    % XY formation paths
+    1, 'tatd20_vs_replan_headline';  ...
+    2, 'tatd_instantaneous_full';    ...
+    3, 'xy_trajectory_smallmult';    ...
+    4, 'riccati_gain_decay';         ...
+    5, 'closedloop_eig_near_tT';     ...
+    6, 'tatd_zoomed_horizon_end';    ...
+    7, 'tatd_selected_intervals'      };
 
 for row = 1:size(fig_map, 1)
     f     = fig_map{row, 1};
@@ -306,51 +351,32 @@ fprintf('All figures saved.\n');
 %  LOCAL FUNCTIONS
 %  ════════════════════════════════════════════════════════════════════════
 
-function TATD = computeTATD(x, xd, N, n_steps, dt)
-%COMPUTETATD  RMS tracking deviation per Jiang et al. (2020) Eq. 11.
-%   Skips first 10 seconds to exclude initial transient.
-    seconds = 5;
-    skip    = round(seconds / dt);
-    NT      = n_steps - skip;
-
-    pos_idx = [];
+function idx = build_state_idx(N, offsets)
+%BUILD_STATE_IDX  Build a flat state-index list across N drones for a
+%given set of within-block offsets (e.g. [1,4,7] for position).
+    idx = [];
     for i = 1:N
-        base    = (i-1) * 10;
-        pos_idx = [pos_idx, base+1, base+4, base+7];
+        base = (i-1)*10;
+        idx = [idx, base + offsets]; %#ok<AGROW>
     end
+end
 
-    err  = x(pos_idx, skip:end) - xd(skip:end, pos_idx)';
+function TATD = computeTATD_lastFrac(x, xd, state_idx, N, n_steps, frac)
+%COMPUTETATD_LASTFRAC  TATD (RMS, Jiang Eq.11) over the last `frac` of
+%the simulation.
+    start_k = round((1-frac) * n_steps) + 1;
+    NT = n_steps - start_k + 1;
+    err  = x(state_idx, start_k:end) - xd(start_k:end, state_idx)';
     TATD = sqrt(sum(err(:).^2) / (N * NT));
 end
 
-function TATD = computeTATD_fromSkip(x, xd, N, n_steps, dt, skip)
-%COMPUTETATD_FROMSKIP  TATD with configurable skip index (for sweep).
-    NT = n_steps - skip;
-    if NT < 2, TATD = NaN; return; end
-
-    pos_idx = [];
-    for i = 1:N
-        base    = (i-1) * 10;
-        pos_idx = [pos_idx, base+1, base+4, base+7];
-    end
-
-    err  = x(pos_idx, skip+1:end) - xd(skip+1:end, pos_idx)';
-    TATD = sqrt(sum(err(:).^2) / (N * NT));
-end
-
-function ferr = computeFormationError(X, xd, N, n_steps)
-%COMPUTEFORMATIONERROR  Mean position error across all drones vs xd.
-%   xd already encodes formation offsets per drone via pathManager.
-%   Near-zero in steady state for closed/semi-open; growing for open-loop.
-    ferr = zeros(1, n_steps);
+function TATD_t = computeTATD_instantaneous(x, xd, state_idx, N, n_steps)
+%COMPUTETATD_INSTANTANEOUS  TATD at each individual timestep (no
+%windowing/averaging).
+    n_per_drone = numel(state_idx) / N;
+    TATD_t = zeros(1, n_steps);
     for k = 1:n_steps
-        err_sum = 0;
-        for i = 1:N
-            pos_idx  = [(i-1)*10+1, (i-1)*10+4, (i-1)*10+7];
-            actual   = X(pos_idx, k);
-            desired  = xd(k, pos_idx)';
-            err_sum  = err_sum + norm(actual - desired);
-        end
-        ferr(k) = err_sum / N;
+        err = x(state_idx, k) - xd(k, state_idx)';
+        TATD_t(k) = sqrt(sum(err.^2) / (N * n_per_drone));
     end
 end

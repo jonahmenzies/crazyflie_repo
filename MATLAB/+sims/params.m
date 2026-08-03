@@ -1,17 +1,14 @@
-%% 
-function P = params()
+function P = params(x0_override, waypoints_override)
 %PARAMS  Global simulation and controller parameters.
-%
-%   All derived matrices (A, B, Ri, graph structure) are built here so
-%   every caller gets the same values without recomputing them.
-%
-%   Usage:
-%       P = sims.params();
+%   P = sims.params()               -- default x0/waypoints
+%   P = sims.params(x0, wp)         -- override for Monte-Carlo testing
+
+if nargin < 1, x0_override = []; end
+if nargin < 2, waypoints_override = []; end
 
 %% ── Physical Parameters ─────────────────────────────────────────────────
 P.g       = 9.81;
 P.m       = 0.027;
-
 P.a_theta = 9.81;
 P.a_phi   = 9.81;
 P.a_r     = 1;
@@ -19,9 +16,8 @@ P.a_r     = 1;
 %% ── Team Parameters ─────────────────────────────────────────────────────
 P.N      = 5;
 P.leader = 1;
-
-P.q     = 5;
-P.alpha = [0.2, 0.2, 0.2, 0.2, 0.2];
+P.q      = 5;
+P.alpha  = [0.2, 0.2, 0.2, 0.2, 0.2];
 
 %% ── Timing ───────────────────────────────────────────────────────────────
 P.t0 = 0;
@@ -32,17 +28,21 @@ P.r_min  = 0.15;
 P.v_mean = 0.2;
 
 %% ── Waypoints ────────────────────────────────────────────────────────────
-P.waypoints = [ ...
-     0.0,  0.0,  1.0;
-     1.0,  0.0,  1.0;
-     1.0,  1.0,  2.0;
-     2.0,  1.0,  1.0;
-     2.0,  0.0,  1.0;
-     3.5,  0.5,  1.0;
-     3.5,  1.5,  3.5;
-     2.5,  2.5,  3.5;
-     3.0,  3.5,  2.5;
-     2.0,  4.0,  1.50];
+if isempty(waypoints_override)
+    P.waypoints = [ ...
+         0.0,  0.0,  1.0;
+         1.0,  0.0,  1.0;
+         1.0,  1.0,  2.0;
+         2.0,  1.0,  1.0;
+         2.0,  0.0,  1.0;
+         3.5,  0.5,  1.0;
+         3.5,  1.5,  3.5;
+         2.5,  2.5,  3.5;
+         3.0,  3.5,  2.5;
+         2.0,  4.0,  1.50];         
+else
+    P.waypoints = waypoints_override;
+end
 
 %% ── Formation Offsets ────────────────────────────────────────────────────
 P.formation_offsets = [ ...
@@ -53,13 +53,16 @@ P.formation_offsets = [ ...
      -4,  -4,  -4];
 
 %% ── Initial States ───────────────────────────────────────────────────────
-% State order per drone: [x, dx, theta, y, dy, phi, z, dz, psi, r]
-P.x0 = [ ...
-        -1,  -1,  0,   0,   0,  0,  1,  -1,    1,  0, ...
-         1,   0,  0,   2,  -1,  0,  3,   0,  0.5,  1, ...
-         0,   3,  1,   4,  -2,  0,  0,   3,    1,  1, ...
-         0,   0,  0,   0,   0,  0,  0,   0,    0,  0, ...
-        -1,   1,  1,  -1,   1,  1,  2,   0, -0.5,  0]';
+if isempty(x0_override)
+    P.x0 = [ ...
+            -1,  -1,  0,   0,   0,  0,  1,  -1,    1,  0, ...
+             1,   0,  0,   2,  -1,  0,  3,   0,  0.5,  1, ...
+             0,   3,  1,   4,  -2,  0,  0,   3,    1,  1, ...
+             0,   0,  0,   0,   0,  0,  0,   0,    0,  0, ...
+            -1,   1,  1,  -1,   1,  1,  2,   0, -0.5,  0]';
+else
+    P.x0 = x0_override;
+end
 
 %% ── Single-Drone System Matrices ─────────────────────────────────────────
 P.Ai = [ ...
@@ -100,14 +103,12 @@ for i = 1:P.N
 end
 
 %% ── Graph Structure ──────────────────────────────────────────────────────
-% Incidence matrix D: rows = agents, cols = edges
 P.D = [ 1,  1,  0,  0;
        -1,  0,  1,  0;
        -1,  0,  0,  1;
         0, -1,  0,  0;
         0,  0, -1,  0];
 
-% Edge weight matrix W
 P.W = [5, 5, 0, 0;
        5, 0, 5, 0;
        5, 0, 0, 5;
