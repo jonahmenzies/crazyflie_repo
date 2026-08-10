@@ -16,7 +16,7 @@ clc; clear all; close all;
 %% ── Config ─────────────────────────────────────────────────────────────
 replanTimes = [1,5, 7, 10,15,20];   % s, semi-open-loop replan intervals to sweep
 ss_frac     = 0.2;                                 % TATD20 measurement window: last 20% of sim
-panel_idx   = [1, 2, 3, 4,5,6];                         % replanTimes indices shown in the formation small-multiples
+panel_idx   = [1, 3, 6, 9];                         % replanTimes indices shown in the formation small-multiples
 
 %% ── Parameters & Riccati ─────────────────────────────────────────────────
 P = sims.params();
@@ -292,7 +292,7 @@ grid on; box on;
 %% Figure 7: Instantaneous TATD, Layered, for Specific Replan Intervals
 %  Fixed selection: 1s, 14s, 15s, 20s, 30s, 60s -- edit desired_times to change.
 %  Uses x_sol_all already in the workspace, no re-sweep needed.
-desired_times = replanTimes;
+desired_times = [1, 14, 15, 20, 30, 60];
 
 sel_idx = zeros(1, numel(desired_times));
 for k = 1:numel(desired_times)

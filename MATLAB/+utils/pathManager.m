@@ -20,7 +20,6 @@ for i = 2:size(waypoints,1)-1
     cos_sigma   = max(-1, min(1, dot(unit_AB, unit_BC)));
     sigma       = acos(cos_sigma);
     delta_sigma = pi - sigma;
-    r_real      = r_min * tan(delta_sigma / 2);
 
     n_vec = cross(unit_AB, unit_BC);
     if norm(n_vec) < 1e-10
@@ -32,12 +31,15 @@ for i = 2:size(waypoints,1)-1
     perp_AB = cross(n_vec, unit_AB);
     perp_AB = perp_AB / norm(perp_AB);
 
+    R      = r_min;
+    r_real = R / tan(delta_sigma / 2);
+    r_real = min(r_real, 0.45 * min(norm(AB), norm(BC)));
     R      = r_real * tan(delta_sigma / 2);
     l      = B_wp - r_real * unit_AB;
     center = l + R * perp_AB;
 
-    n_arc          = max(2, round(delta_sigma * R / (v_mean * dt)));
-    angle_per_step = delta_sigma / n_arc;
+    n_arc          = max(2, round(sigma * R / (v_mean * dt)));
+    angle_per_step = sigma / n_arc;    
     e1             = (l - center) / norm(l - center);
 
     path = [path; l];
