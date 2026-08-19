@@ -19,6 +19,7 @@ struct params{
 	const double r_min = 0.15;
 	const double v_mean = 0.2;
 	const double dt = 0.01; 
+	const double t0 = 0.0;
 
 	// Optimisable parameters
 	int leader = 0; // Drone leader index
@@ -44,6 +45,7 @@ struct params{
 	Eigen::MatrixXd W;
 	std::vector<Eigen::MatrixXd> W_hat;
 	Eigen::MatrixXd q_diag;
+	Eigen::MatrixXd formation_offsets;  // N x 3
 
 	// Helper Matrices
 	Eigen::MatrixXd E_N = Eigen::MatrixXd::Identity(N,N);
@@ -62,6 +64,11 @@ struct params{
 	void systemDynamics();
 	void stateWeight();
 	void controlWeight();
+
+	Eigen::VectorXd x0_flat() const {
+		Eigen::MatrixXd tmp = x0.transpose();  // 10 x N
+		return Eigen::Map<const Eigen::VectorXd>(tmp.data(), tmp.size());
+	}
 }
 ;
 

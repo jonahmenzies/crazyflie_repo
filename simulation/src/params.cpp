@@ -15,7 +15,13 @@ params::params(){
 	setWaypoint(7, 2.5, 2.5, 3.5);
 	setWaypoint(8, 3.0, 3.5, 2.5);
 	setWaypoint(9, 2.0, 4.0, 1.5);
-	
+
+	formation_offsets.resize(N,3);
+	formation_offsets <<  1,  4,  3,
+	                     -1, -2,  1,
+	                      3,  1, -2,
+	                     -3, -3, -1,
+	                     -4, -4, -4;
 	x0.resize(N,10);
 	x0.setZero();
 	setDroneState(0, -1.0, -1.0,  0.0,  0.0,  0.0,  0.0,  1.0, -1.0,  1.0,  0.0);
