@@ -1,0 +1,20 @@
+radio:
+  channel: 80
+  datarate: 2M
+
+uris:
+  - radio://0/10/2M/E7E7E7E7E7
+  - radio://0/60/2M/E7E7E7E7E7
+  - radio://0/80/2M/E7E7E7E7E7
+  - radio://1/90/2M/E7E7E7E7E7
+  - radio://1/100/2M/E7E7E7E7E7
+  - radio://1/110/2M/E7E7E7E7E7
+
+swarm:
+  required: 5
+
+safety:
+  geofence:
+    x: [-2.0, 2.0]
+    y: [-2.0, 2.0]
+    z: [ 0.0, 2.0]
