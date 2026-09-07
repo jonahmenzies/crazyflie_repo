@@ -1,7 +1,3 @@
-radio:
-  channel: 80
-  datarate: 2M
-
 uris:
   - radio://0/10/2M/E7E7E7E7E7
   - radio://0/60/2M/E7E7E7E7E7

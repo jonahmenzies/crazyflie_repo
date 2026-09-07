@@ -1,0 +1,16 @@
+{
+  "stamp": "20260907_212531",
+  "note": "dry run, no hardware",
+  "N": 5,
+  "dt": 0.01,
+  "stride": 5,
+  "tT": 18.31,
+  "interval": 5,
+  "mapping": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ]
+}

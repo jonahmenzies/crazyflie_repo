@@ -1,23 +1,20 @@
 CXX      = g++
-CXXFLAGS = -std=c++17 -O2 -I/usr/include/eigen3 -Isrc
+CXXFLAGS = -std=c++17 -O2 -I/usr/include/eigen3 -Iinclude
 SRC      = $(wildcard src/*.cpp)
 OBJ      = $(SRC:.cpp=.o)
 DEP      = $(OBJ:.o=.d)
 
-sim: $(OBJ)
+generate: $(OBJ)
 	$(CXX) $(OBJ) -o $@
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-run: sim
-	./sim
-
-plot: sim
-	./sim
-	python plot.py
+run: generate
+	mkdir -p ../arrays
+	./generate
 
 clean:
-	rm -f $(OBJ) $(DEP) sim
+	rm -f $(OBJ) $(DEP) generate
 
 -include $(DEP)

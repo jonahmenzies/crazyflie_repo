@@ -5,30 +5,31 @@ params::params(){
 	// TODO: Move to pathManager.cpp
 	waypoints.resize(numWaypoints, 3);
 	waypoints.setZero();
-	setWaypoint(0, 0.0, 0.0, 1.0);
-	setWaypoint(1, 1.0, 0.0, 1.0);
-	setWaypoint(2, 1.0, 1.0, 2.0);
-	setWaypoint(3, 2.0, 1.0, 1.0);
-	setWaypoint(4, 2.0, 0.0, 1.0);
-	setWaypoint(5, 3.5, 0.5, 1.0);
-	setWaypoint(6, 3.5, 1.5, 3.5);
-	setWaypoint(7, 2.5, 2.5, 3.5);
-	setWaypoint(8, 3.0, 3.5, 2.5);
-	setWaypoint(9, 2.0, 4.0, 1.5);
-
+	setWaypoint(0, -0.8, -0.3, 0.8);
+	setWaypoint(1, -0.4, -0.3, 0.8);
+	setWaypoint(2, -0.4,  0.0, 1.1);
+	setWaypoint(3,  0.0,  0.0, 0.8);
+	setWaypoint(4,  0.0, -0.3, 0.8);
+	setWaypoint(5,  0.6, -0.2, 0.8);
+	setWaypoint(6,  0.6,  0.2, 1.5);
+	setWaypoint(7,  0.2,  0.4, 1.5);
+	setWaypoint(8,  0.4,  0.4, 1.2);
+	setWaypoint(9,  0.0,  0.4, 1.0);
+	
 	formation_offsets.resize(N,3);
-	formation_offsets <<  1,  4,  3,
-	                     -1, -2,  1,
-	                      3,  1, -2,
-	                     -3, -3, -1,
-	                     -4, -4, -4;
+	formation_offsets <<  0.6,  0.4,  0.15,
+	                     -0.5,  0.5,  0.00,
+	                      0.5, -0.5, -0.15,
+	                     -0.6, -0.3,  0.15,
+	                      0.0,  0.0, -0.30;
+
 	x0.resize(N,10);
 	x0.setZero();
-	setDroneState(0, -1.0, -1.0,  0.0,  0.0,  0.0,  0.0,  1.0, -1.0,  1.0,  0.0);
-	setDroneState(1,  1.0,  0.0,  0.0,  2.0, -1.0,  0.0,  3.0,  0.0,  0.5,  1.0);
-	setDroneState(2,  0.0,  3.0,  3.0,  4.0, -2.0,  0.0,  0.0,  3.0,  1.0,  1.0);
-	setDroneState(3,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0);
-	setDroneState(4, -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,  2.0,  0.0, -0.5,  0.0);
+	setDroneState(0,  -0.2, 0.0, 0.0,   0.1, 0.0, 0.0,  0.95, 0.0, 0.0, 0.0);
+	setDroneState(1,  -1.3, 0.0, 0.0,   0.2, 0.0, 0.0,  0.80, 0.0, 0.0, 0.0);
+	setDroneState(2,  -0.3, 0.0, 0.0,  -0.8, 0.0, 0.0,  0.65, 0.0, 0.0, 0.0);
+	setDroneState(3,  -1.4, 0.0, 0.0,  -0.6, 0.0, 0.0,  0.95, 0.0, 0.0, 0.0);
+	setDroneState(4,  -0.8, 0.0, 0.0,  -0.3, 0.0, 0.0,  0.50, 0.0, 0.0, 0.0);
 
 	systemDynamics();
 	controlWeight();
