@@ -12,14 +12,16 @@ class Logger:
 	"""Per-tick flight log.
 
 	Writes two files into logs/:
-	    flight_<stamp>.csv   sim-compatible columns, for plot.py and computeTATD
+	    flight_<stamp>.csv        sim-compatible columns, for plot.py
+	                              and computeTATD
 	    flight_<stamp>_full.csv   everything, for diagnosis
 
 	Also copies the manifest alongside so any flight can be traced back to
 	the exact arrays and parameters that produced it.
 	"""
 
-	def __init__(self, arrays, mapping, path='logs', arrays_path='arrays', note=''):
+	def __init__(self, arrays, mapping, path='logs', arrays_path='arrays',
+	             note='', slot_uris=None, volts=None):
 		os.makedirs(path, exist_ok=True)
 		stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -27,11 +29,13 @@ class Logger:
 		self.N     = arrays.N
 		self.dt    = arrays.dt
 		self.t0    = None
+		self.last  = 0.0
 
 		self.sim_path  = f'{path}/flight_{stamp}.csv'
 		self.full_path = f'{path}/flight_{stamp}_full.csv'
 
-		shutil.copy(f'{arrays_path}/manifest.json', f'{path}/flight_{stamp}_manifest.json')
+		shutil.copy(f'{arrays_path}/manifest.json',
+		            f'{path}/flight_{stamp}_manifest.json')
 
 		with open(f'{path}/flight_{stamp}_meta.json', 'w') as f:
 			json.dump({
@@ -43,6 +47,15 @@ class Logger:
 				'tT':       arrays.tT,
 				'interval': arrays.interval,
 				'mapping':  [int(m) for m in mapping],
+				# Which physical drone flew which slot. mapping is reset to
+				# identity by the reorder, so without this the logs cannot
+				# tell you whether a misbehaving slot is the same airframe
+				# run to run.
+				'slot_uris': list(slot_uris) if slot_uris else [],
+				# Resting voltage per drone at arm time. Thrust per PWM
+				# count falls as the cell sags, so this is the first thing
+				# to check when vertical tracking looks worse than usual.
+				'vbat': volts or {},
 			}, f, indent=2)
 
 		# sim-compatible: t, x0, y0, x1, y1, ..., xd, yd
@@ -67,7 +80,7 @@ class Logger:
 		self.full.writerow(head)
 
 		self.n_rows  = 0
-		self.n_pings = 0
+		self.n_meas  = 0
 		self.tick_ms = []
 
 	def write(self, k, ping, x_meas, x_pred, xd=None):
@@ -98,9 +111,7 @@ class Logger:
 
 		self.n_rows += 1
 		if x_meas is not None:
-			self.n_pings += 1
-
-	last = 0.0
+			self.n_meas += 1
 
 	def close(self):
 		self.sim_file.close()
@@ -108,7 +119,7 @@ class Logger:
 
 		if self.tick_ms:
 			t = np.array(self.tick_ms)
-			print(f'\n{self.n_rows} ticks, {self.n_pings} measurements')
+			print(f'\n{self.n_rows} ticks, {self.n_meas} measured rows')
 			print(f'  tick period  mean {t.mean():6.2f} ms   '
 			      f'min {t.min():6.2f}   max {t.max():6.2f}')
 			print(f'  achieved     {1000/t.mean():6.1f} Hz')

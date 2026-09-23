@@ -1,0 +1,17 @@
+{
+  "stamp": "20260916_095027",
+  "note": "dry run, 1.0s",
+  "N": 4,
+  "dt": 0.01,
+  "stride": 5,
+  "tT": 19.63,
+  "interval": 1,
+  "mapping": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "slot_uris": [],
+  "vbat": {}
+}

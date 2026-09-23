@@ -1,0 +1,27 @@
+{
+  "stamp": "20260916_100135",
+  "note": "1.0s replan, send_full_state_setpoint",
+  "N": 4,
+  "dt": 0.01,
+  "stride": 5,
+  "tT": 19.63,
+  "interval": 1,
+  "mapping": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "slot_uris": [
+    "radio://1/90/2M/E7E7E7E709",
+    "radio://0/10/2M/E7E7E7E701",
+    "radio://1/80/2M/E7E7E7E708",
+    "radio://0/60/2M/E7E7E7E706"
+  ],
+  "vbat": {
+    "radio://0/10/2M/E7E7E7E701": 4.080351829528809,
+    "radio://0/60/2M/E7E7E7E706": 4.080351829528809,
+    "radio://1/80/2M/E7E7E7E708": 4.027565956115723,
+    "radio://1/90/2M/E7E7E7E709": 4.059237480163574
+  }
+}

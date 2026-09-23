@@ -1,0 +1,23 @@
+{
+  "stamp": "20260910_094039",
+  "note": "5.0s replan",
+  "N": 5,
+  "dt": 0.01,
+  "stride": 5,
+  "tT": 10.32,
+  "interval": 5,
+  "mapping": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "slot_uris": [
+    "radio://1/100/2M/E7E7E7E710",
+    "radio://0/60/2M/E7E7E7E706",
+    "radio://1/80/2M/E7E7E7E708",
+    "radio://1/90/2M/E7E7E7E709",
+    "radio://0/10/2M/E7E7E7E701"
+  ]
+}

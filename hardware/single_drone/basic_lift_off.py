@@ -13,7 +13,7 @@ import numpy as np
 import math
 
 # Change this to match your drone
-URI = 'radio://0/90/2M/E7E7E7E7E7'
+URI = 'radio://0/10/2M/E7E7E7E701'
 SURVEY_ALT = 0.5
 
 #class formationController:

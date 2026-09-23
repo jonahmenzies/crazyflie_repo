@@ -3,11 +3,18 @@ import numpy as np
 
 
 class Arrays:
-	"""Precomputed c and e arrays from the C++ generator.
+	"""Precomputed state (c, e) and control (cu, eu) arrays.
 
 	Indexed by ping number, not tau. Ping 0 is the first replan (tau = 0),
 	ping 1 the second, and so on. Each array starts at its own global
 	timestep k0 and stores every `stride`-th step.
+
+	The state passed to predict() and control() must be anchored at the
+	ping's tau — measured at the moment that ping began. There is no way to
+	re-anchor a mid-horizon measurement onto an older ping: c(t) contracts
+	as the closed loop converges, so inverting it is catastrophically
+	ill-conditioned (cond ~1e12 by 3s). To get closer to closed-loop
+	behaviour, shorten replan_interval instead.
 	"""
 
 	def __init__(self, path='arrays'):
@@ -15,33 +22,42 @@ class Arrays:
 			man = json.load(f)
 
 		self.n        = man['n']
+		self.m        = man['m']
 		self.dt       = man['dt']
 		self.stride   = man['stride']
 		self.n_steps  = man['n_steps']
 		self.tT       = man['tT']
 		self.interval = man['replan_interval']
+		self.mass     = man['mass']
+		self.g        = man['g']
 
 		self.formation_offsets = np.array(man['formation_offsets'])   # (N,3)
 		self.xd0               = np.array(man['xd0'])                 # (3,)
-        
+
 		self.xd = np.fromfile(f'{path}/xd.bin').reshape(-1, self.n)
 		self.c  = []
 		self.e  = []
+		self.cu = []
+		self.eu = []
 		self.k0 = []
 
-		for r in man['replans']:
-			tau = int(r['tau'])
+		# Files are named by replan index, not tau — see generate.cpp.
+		for idx, r in enumerate(man['replans']):
+			c  = np.fromfile(f'{path}/c_{idx:03d}.bin').reshape(-1, self.n, self.n)
+			e  = np.fromfile(f'{path}/e_{idx:03d}.bin').reshape(-1, self.n)
+			cu = np.fromfile(f'{path}/cu_{idx:03d}.bin').reshape(-1, self.m, self.n)
+			eu = np.fromfile(f'{path}/eu_{idx:03d}.bin').reshape(-1, self.m)
 
-			c = np.fromfile(f'{path}/c_{tau:02d}.bin').reshape(-1, self.n, self.n)
-			e = np.fromfile(f'{path}/e_{tau:02d}.bin').reshape(-1, self.n)
-
-			if c.shape[0] != r['steps'] or e.shape[0] != r['steps']:
-				raise ValueError(
-					f'tau={tau}: manifest says {r["steps"]} rows, '
-					f'files have c={c.shape[0]} e={e.shape[0]}')
+			for name, arr in (('c', c), ('e', e), ('cu', cu), ('eu', eu)):
+				if arr.shape[0] != r['steps']:
+					raise ValueError(
+						f'replan {idx} (tau={r["tau"]}): manifest says '
+						f'{r["steps"]} rows, {name} has {arr.shape[0]}')
 
 			self.c.append(c)
 			self.e.append(e)
+			self.cu.append(cu)
+			self.eu.append(eu)
 			self.k0.append(r['k0'])
 
 		self.n_pings = len(self.c)
@@ -62,11 +78,19 @@ class Arrays:
 		r = self.row(k, ping)
 		return self.c[ping][r] @ x_meas + self.e[ping][r]
 
+	def control(self, k, ping, x_meas):
+		"""u = cu[k] @ x_meas + eu[k], eq 10a with x substituted.
+
+		Unclamped — apply inclination_protection before sending.
+		"""
+		r = self.row(k, ping)
+		return self.cu[ping][r] @ x_meas + self.eu[ping][r]
+
 	def __repr__(self):
-		mb = sum(a.nbytes for a in self.c + self.e) / 1e6
-		return (f'Arrays(n={self.n}, dt={self.dt}, stride={self.stride}, '
-		        f'pings={self.n_pings}, interval={self.interval}s, '
-		        f'tT={self.tT:.2f}s, {mb:.1f} MB)')
+		mb = sum(a.nbytes for a in self.c + self.e + self.cu + self.eu) / 1e6
+		return (f'Arrays(n={self.n}, m={self.m}, dt={self.dt}, '
+		        f'stride={self.stride}, pings={self.n_pings}, '
+		        f'interval={self.interval}s, tT={self.tT:.2f}s, {mb:.1f} MB)')
 
 
 if __name__ == '__main__':

@@ -1,44 +1,33 @@
 src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/Dense /usr/include/eigen3/Eigen/Core \
- /usr/include/eigen3/Eigen/Version \
  /usr/include/eigen3/Eigen/src/Core/util/DisableStupidWarnings.h \
  /usr/include/eigen3/Eigen/src/Core/util/Macros.h \
- /usr/include/eigen3/Eigen/src/Core/util/../InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Core/util/ConfigureVectorization.h \
  /usr/include/eigen3/Eigen/src/Core/util/MKL_support.h \
  /usr/include/eigen3/Eigen/src/Core/util/Constants.h \
  /usr/include/eigen3/Eigen/src/Core/util/Meta.h \
- /usr/include/eigen3/Eigen/src/Core/util/Assert.h \
  /usr/include/eigen3/Eigen/src/Core/util/ForwardDeclarations.h \
  /usr/include/eigen3/Eigen/src/Core/util/StaticAssert.h \
  /usr/include/eigen3/Eigen/src/Core/util/XprHelper.h \
  /usr/include/eigen3/Eigen/src/Core/util/Memory.h \
  /usr/include/eigen3/Eigen/src/Core/util/IntegralConstant.h \
- /usr/include/eigen3/Eigen/src/Core/util/Serializer.h \
  /usr/include/eigen3/Eigen/src/Core/util/SymbolicIndex.h \
- /usr/include/eigen3/Eigen/src/Core/util/EmulateArray.h \
- /usr/include/eigen3/Eigen/src/Core/util/MoreMeta.h \
  /usr/include/eigen3/Eigen/src/Core/NumTraits.h \
- /usr/include/eigen3/Eigen/src/Core/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Core/MathFunctions.h \
- /usr/include/eigen3/Eigen/src/Core/RandomImpl.h \
  /usr/include/eigen3/Eigen/src/Core/GenericPacketMath.h \
  /usr/include/eigen3/Eigen/src/Core/MathFunctionsImpl.h \
  /usr/include/eigen3/Eigen/src/Core/arch/Default/ConjHelper.h \
- /usr/include/eigen3/Eigen/src/Core/arch/Default/../../InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Core/arch/Default/Half.h \
  /usr/include/eigen3/Eigen/src/Core/arch/Default/BFloat16.h \
+ /usr/include/eigen3/Eigen/src/Core/arch/Default/TypeCasting.h \
  /usr/include/eigen3/Eigen/src/Core/arch/Default/GenericPacketMathFunctionsFwd.h \
  /usr/include/eigen3/Eigen/src/Core/arch/SSE/PacketMath.h \
- /usr/include/eigen3/Eigen/src/Core/arch/SSE/../../InternalHeaderCheck.h \
- /usr/include/eigen3/Eigen/src/Core/arch/SSE/Reductions.h \
  /usr/include/eigen3/Eigen/src/Core/arch/SSE/TypeCasting.h \
  /usr/include/eigen3/Eigen/src/Core/arch/SSE/MathFunctions.h \
  /usr/include/eigen3/Eigen/src/Core/arch/SSE/Complex.h \
  /usr/include/eigen3/Eigen/src/Core/arch/Default/Settings.h \
  /usr/include/eigen3/Eigen/src/Core/arch/Default/GenericPacketMathFunctions.h \
  /usr/include/eigen3/Eigen/src/Core/functors/TernaryFunctors.h \
- /usr/include/eigen3/Eigen/src/Core/functors/../InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Core/functors/BinaryFunctors.h \
  /usr/include/eigen3/Eigen/src/Core/functors/UnaryFunctors.h \
  /usr/include/eigen3/Eigen/src/Core/functors/NullaryFunctors.h \
@@ -50,24 +39,24 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Core/IO.h \
  /usr/include/eigen3/Eigen/src/Core/DenseCoeffsBase.h \
  /usr/include/eigen3/Eigen/src/Core/DenseBase.h \
- /usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseUnaryOps.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/BlockMethods.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/IndexedViewMethods.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.inc \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseUnaryOps.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/BlockMethods.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/IndexedViewMethods.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/IndexedViewMethods.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.h \
  /usr/include/eigen3/Eigen/src/Core/MatrixBase.h \
- /usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseBinaryOps.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseUnaryOps.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseBinaryOps.inc \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseBinaryOps.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseUnaryOps.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseBinaryOps.h \
  /usr/include/eigen3/Eigen/src/Core/EigenBase.h \
  /usr/include/eigen3/Eigen/src/Core/Product.h \
  /usr/include/eigen3/Eigen/src/Core/CoreEvaluators.h \
  /usr/include/eigen3/Eigen/src/Core/AssignEvaluator.h \
- /usr/include/eigen3/Eigen/src/Core/RealView.h \
  /usr/include/eigen3/Eigen/src/Core/Assign.h \
  /usr/include/eigen3/Eigen/src/Core/ArrayBase.h \
- /usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseUnaryOps.inc \
- /usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseBinaryOps.inc \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseUnaryOps.h \
+ /usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseBinaryOps.h \
  /usr/include/eigen3/Eigen/src/Core/util/BlasUtil.h \
  /usr/include/eigen3/Eigen/src/Core/DenseStorage.h \
  /usr/include/eigen3/Eigen/src/Core/NestByValue.h \
@@ -76,14 +65,12 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Core/PlainObjectBase.h \
  /usr/include/eigen3/Eigen/src/Core/Matrix.h \
  /usr/include/eigen3/Eigen/src/Core/Array.h \
- /usr/include/eigen3/Eigen/src/Core/Fill.h \
  /usr/include/eigen3/Eigen/src/Core/CwiseTernaryOp.h \
  /usr/include/eigen3/Eigen/src/Core/CwiseBinaryOp.h \
  /usr/include/eigen3/Eigen/src/Core/CwiseUnaryOp.h \
  /usr/include/eigen3/Eigen/src/Core/CwiseNullaryOp.h \
  /usr/include/eigen3/Eigen/src/Core/CwiseUnaryView.h \
  /usr/include/eigen3/Eigen/src/Core/SelfCwiseBinaryOp.h \
- /usr/include/eigen3/Eigen/src/Core/InnerProduct.h \
  /usr/include/eigen3/Eigen/src/Core/Dot.h \
  /usr/include/eigen3/Eigen/src/Core/StableNorm.h \
  /usr/include/eigen3/Eigen/src/Core/Stride.h \
@@ -98,10 +85,8 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Core/DiagonalMatrix.h \
  /usr/include/eigen3/Eigen/src/Core/Diagonal.h \
  /usr/include/eigen3/Eigen/src/Core/DiagonalProduct.h \
- /usr/include/eigen3/Eigen/src/Core/SkewSymmetricMatrix3.h \
  /usr/include/eigen3/Eigen/src/Core/Redux.h \
  /usr/include/eigen3/Eigen/src/Core/Visitor.h \
- /usr/include/eigen3/Eigen/src/Core/FindCoeff.h \
  /usr/include/eigen3/Eigen/src/Core/Fuzzy.h \
  /usr/include/eigen3/Eigen/src/Core/Swap.h \
  /usr/include/eigen3/Eigen/src/Core/CommaInitializer.h \
@@ -114,8 +99,6 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Core/TriangularMatrix.h \
  /usr/include/eigen3/Eigen/src/Core/SelfAdjointView.h \
  /usr/include/eigen3/Eigen/src/Core/products/GeneralBlockPanelKernel.h \
- /usr/include/eigen3/Eigen/src/Core/products/../InternalHeaderCheck.h \
- /usr/include/eigen3/Eigen/src/Core/DeviceWrapper.h \
  /usr/include/eigen3/Eigen/src/Core/products/Parallelizer.h \
  /usr/include/eigen3/Eigen/src/Core/ProductEvaluators.h \
  /usr/include/eigen3/Eigen/src/Core/products/GeneralMatrixVector.h \
@@ -133,6 +116,7 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Core/BandMatrix.h \
  /usr/include/eigen3/Eigen/src/Core/CoreIterators.h \
  /usr/include/eigen3/Eigen/src/Core/ConditionEstimator.h \
+ /usr/include/eigen3/Eigen/src/Core/BooleanRedux.h \
  /usr/include/eigen3/Eigen/src/Core/Select.h \
  /usr/include/eigen3/Eigen/src/Core/VectorwiseOp.h \
  /usr/include/eigen3/Eigen/src/Core/PartialReduxEvaluator.h \
@@ -144,41 +128,32 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Core/GlobalFunctions.h \
  /usr/include/eigen3/Eigen/src/Core/util/ReenableStupidWarnings.h \
  /usr/include/eigen3/Eigen/LU /usr/include/eigen3/Eigen/src/misc/Kernel.h \
- /usr/include/eigen3/Eigen/src/misc/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/misc/Image.h \
  /usr/include/eigen3/Eigen/src/LU/FullPivLU.h \
- /usr/include/eigen3/Eigen/src/LU/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/LU/PartialPivLU.h \
  /usr/include/eigen3/Eigen/src/LU/Determinant.h \
  /usr/include/eigen3/Eigen/src/LU/InverseImpl.h \
  /usr/include/eigen3/Eigen/src/LU/arch/InverseSize4.h \
- /usr/include/eigen3/Eigen/src/LU/arch/../InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/Cholesky /usr/include/eigen3/Eigen/Jacobi \
  /usr/include/eigen3/Eigen/src/Jacobi/Jacobi.h \
- /usr/include/eigen3/Eigen/src/Jacobi/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Cholesky/LLT.h \
- /usr/include/eigen3/Eigen/src/Cholesky/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Cholesky/LDLT.h \
  /usr/include/eigen3/Eigen/QR /usr/include/eigen3/Eigen/Householder \
  /usr/include/eigen3/Eigen/src/Householder/Householder.h \
- /usr/include/eigen3/Eigen/src/Householder/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Householder/HouseholderSequence.h \
  /usr/include/eigen3/Eigen/src/Householder/BlockHouseholder.h \
  /usr/include/eigen3/Eigen/src/QR/HouseholderQR.h \
- /usr/include/eigen3/Eigen/src/QR/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/QR/FullPivHouseholderQR.h \
  /usr/include/eigen3/Eigen/src/QR/ColPivHouseholderQR.h \
  /usr/include/eigen3/Eigen/src/QR/CompleteOrthogonalDecomposition.h \
  /usr/include/eigen3/Eigen/SVD \
  /usr/include/eigen3/Eigen/src/misc/RealSvd2x2.h \
  /usr/include/eigen3/Eigen/src/SVD/UpperBidiagonalization.h \
- /usr/include/eigen3/Eigen/src/SVD/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/SVD/SVDBase.h \
  /usr/include/eigen3/Eigen/src/SVD/JacobiSVD.h \
  /usr/include/eigen3/Eigen/src/SVD/BDCSVD.h \
  /usr/include/eigen3/Eigen/Geometry \
  /usr/include/eigen3/Eigen/src/Geometry/OrthoMethods.h \
- /usr/include/eigen3/Eigen/src/Geometry/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Geometry/EulerAngles.h \
  /usr/include/eigen3/Eigen/src/Geometry/Homogeneous.h \
  /usr/include/eigen3/Eigen/src/Geometry/RotationBase.h \
@@ -193,13 +168,10 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
  /usr/include/eigen3/Eigen/src/Geometry/AlignedBox.h \
  /usr/include/eigen3/Eigen/src/Geometry/Umeyama.h \
  /usr/include/eigen3/Eigen/src/Geometry/arch/Geometry_SIMD.h \
- /usr/include/eigen3/Eigen/src/Geometry/arch/../InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/Eigenvalues \
  /usr/include/eigen3/Eigen/src/Eigenvalues/Tridiagonalization.h \
- /usr/include/eigen3/Eigen/src/Eigenvalues/./InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Eigenvalues/RealSchur.h \
  /usr/include/eigen3/Eigen/src/Eigenvalues/./HessenbergDecomposition.h \
- /usr/include/eigen3/Eigen/src/Eigenvalues/././InternalHeaderCheck.h \
  /usr/include/eigen3/Eigen/src/Eigenvalues/EigenSolver.h \
  /usr/include/eigen3/Eigen/src/Eigenvalues/./RealSchur.h \
  /usr/include/eigen3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h \
@@ -217,45 +189,34 @@ src/riccatiSolver.o: src/riccatiSolver.cpp include/riccatiSolver.hpp \
 include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/Dense:
 /usr/include/eigen3/Eigen/Core:
-/usr/include/eigen3/Eigen/Version:
 /usr/include/eigen3/Eigen/src/Core/util/DisableStupidWarnings.h:
 /usr/include/eigen3/Eigen/src/Core/util/Macros.h:
-/usr/include/eigen3/Eigen/src/Core/util/../InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Core/util/ConfigureVectorization.h:
 /usr/include/eigen3/Eigen/src/Core/util/MKL_support.h:
 /usr/include/eigen3/Eigen/src/Core/util/Constants.h:
 /usr/include/eigen3/Eigen/src/Core/util/Meta.h:
-/usr/include/eigen3/Eigen/src/Core/util/Assert.h:
 /usr/include/eigen3/Eigen/src/Core/util/ForwardDeclarations.h:
 /usr/include/eigen3/Eigen/src/Core/util/StaticAssert.h:
 /usr/include/eigen3/Eigen/src/Core/util/XprHelper.h:
 /usr/include/eigen3/Eigen/src/Core/util/Memory.h:
 /usr/include/eigen3/Eigen/src/Core/util/IntegralConstant.h:
-/usr/include/eigen3/Eigen/src/Core/util/Serializer.h:
 /usr/include/eigen3/Eigen/src/Core/util/SymbolicIndex.h:
-/usr/include/eigen3/Eigen/src/Core/util/EmulateArray.h:
-/usr/include/eigen3/Eigen/src/Core/util/MoreMeta.h:
 /usr/include/eigen3/Eigen/src/Core/NumTraits.h:
-/usr/include/eigen3/Eigen/src/Core/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Core/MathFunctions.h:
-/usr/include/eigen3/Eigen/src/Core/RandomImpl.h:
 /usr/include/eigen3/Eigen/src/Core/GenericPacketMath.h:
 /usr/include/eigen3/Eigen/src/Core/MathFunctionsImpl.h:
 /usr/include/eigen3/Eigen/src/Core/arch/Default/ConjHelper.h:
-/usr/include/eigen3/Eigen/src/Core/arch/Default/../../InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Core/arch/Default/Half.h:
 /usr/include/eigen3/Eigen/src/Core/arch/Default/BFloat16.h:
+/usr/include/eigen3/Eigen/src/Core/arch/Default/TypeCasting.h:
 /usr/include/eigen3/Eigen/src/Core/arch/Default/GenericPacketMathFunctionsFwd.h:
 /usr/include/eigen3/Eigen/src/Core/arch/SSE/PacketMath.h:
-/usr/include/eigen3/Eigen/src/Core/arch/SSE/../../InternalHeaderCheck.h:
-/usr/include/eigen3/Eigen/src/Core/arch/SSE/Reductions.h:
 /usr/include/eigen3/Eigen/src/Core/arch/SSE/TypeCasting.h:
 /usr/include/eigen3/Eigen/src/Core/arch/SSE/MathFunctions.h:
 /usr/include/eigen3/Eigen/src/Core/arch/SSE/Complex.h:
 /usr/include/eigen3/Eigen/src/Core/arch/Default/Settings.h:
 /usr/include/eigen3/Eigen/src/Core/arch/Default/GenericPacketMathFunctions.h:
 /usr/include/eigen3/Eigen/src/Core/functors/TernaryFunctors.h:
-/usr/include/eigen3/Eigen/src/Core/functors/../InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Core/functors/BinaryFunctors.h:
 /usr/include/eigen3/Eigen/src/Core/functors/UnaryFunctors.h:
 /usr/include/eigen3/Eigen/src/Core/functors/NullaryFunctors.h:
@@ -267,24 +228,24 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Core/IO.h:
 /usr/include/eigen3/Eigen/src/Core/DenseCoeffsBase.h:
 /usr/include/eigen3/Eigen/src/Core/DenseBase.h:
-/usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseUnaryOps.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/BlockMethods.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/IndexedViewMethods.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.inc:
+/usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseUnaryOps.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/BlockMethods.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/IndexedViewMethods.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/IndexedViewMethods.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/ReshapedMethods.h:
 /usr/include/eigen3/Eigen/src/Core/MatrixBase.h:
-/usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseBinaryOps.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseUnaryOps.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseBinaryOps.inc:
+/usr/include/eigen3/Eigen/src/Core/../plugins/CommonCwiseBinaryOps.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseUnaryOps.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/MatrixCwiseBinaryOps.h:
 /usr/include/eigen3/Eigen/src/Core/EigenBase.h:
 /usr/include/eigen3/Eigen/src/Core/Product.h:
 /usr/include/eigen3/Eigen/src/Core/CoreEvaluators.h:
 /usr/include/eigen3/Eigen/src/Core/AssignEvaluator.h:
-/usr/include/eigen3/Eigen/src/Core/RealView.h:
 /usr/include/eigen3/Eigen/src/Core/Assign.h:
 /usr/include/eigen3/Eigen/src/Core/ArrayBase.h:
-/usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseUnaryOps.inc:
-/usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseBinaryOps.inc:
+/usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseUnaryOps.h:
+/usr/include/eigen3/Eigen/src/Core/../plugins/ArrayCwiseBinaryOps.h:
 /usr/include/eigen3/Eigen/src/Core/util/BlasUtil.h:
 /usr/include/eigen3/Eigen/src/Core/DenseStorage.h:
 /usr/include/eigen3/Eigen/src/Core/NestByValue.h:
@@ -293,14 +254,12 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Core/PlainObjectBase.h:
 /usr/include/eigen3/Eigen/src/Core/Matrix.h:
 /usr/include/eigen3/Eigen/src/Core/Array.h:
-/usr/include/eigen3/Eigen/src/Core/Fill.h:
 /usr/include/eigen3/Eigen/src/Core/CwiseTernaryOp.h:
 /usr/include/eigen3/Eigen/src/Core/CwiseBinaryOp.h:
 /usr/include/eigen3/Eigen/src/Core/CwiseUnaryOp.h:
 /usr/include/eigen3/Eigen/src/Core/CwiseNullaryOp.h:
 /usr/include/eigen3/Eigen/src/Core/CwiseUnaryView.h:
 /usr/include/eigen3/Eigen/src/Core/SelfCwiseBinaryOp.h:
-/usr/include/eigen3/Eigen/src/Core/InnerProduct.h:
 /usr/include/eigen3/Eigen/src/Core/Dot.h:
 /usr/include/eigen3/Eigen/src/Core/StableNorm.h:
 /usr/include/eigen3/Eigen/src/Core/Stride.h:
@@ -315,10 +274,8 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Core/DiagonalMatrix.h:
 /usr/include/eigen3/Eigen/src/Core/Diagonal.h:
 /usr/include/eigen3/Eigen/src/Core/DiagonalProduct.h:
-/usr/include/eigen3/Eigen/src/Core/SkewSymmetricMatrix3.h:
 /usr/include/eigen3/Eigen/src/Core/Redux.h:
 /usr/include/eigen3/Eigen/src/Core/Visitor.h:
-/usr/include/eigen3/Eigen/src/Core/FindCoeff.h:
 /usr/include/eigen3/Eigen/src/Core/Fuzzy.h:
 /usr/include/eigen3/Eigen/src/Core/Swap.h:
 /usr/include/eigen3/Eigen/src/Core/CommaInitializer.h:
@@ -331,8 +288,6 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Core/TriangularMatrix.h:
 /usr/include/eigen3/Eigen/src/Core/SelfAdjointView.h:
 /usr/include/eigen3/Eigen/src/Core/products/GeneralBlockPanelKernel.h:
-/usr/include/eigen3/Eigen/src/Core/products/../InternalHeaderCheck.h:
-/usr/include/eigen3/Eigen/src/Core/DeviceWrapper.h:
 /usr/include/eigen3/Eigen/src/Core/products/Parallelizer.h:
 /usr/include/eigen3/Eigen/src/Core/ProductEvaluators.h:
 /usr/include/eigen3/Eigen/src/Core/products/GeneralMatrixVector.h:
@@ -350,6 +305,7 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Core/BandMatrix.h:
 /usr/include/eigen3/Eigen/src/Core/CoreIterators.h:
 /usr/include/eigen3/Eigen/src/Core/ConditionEstimator.h:
+/usr/include/eigen3/Eigen/src/Core/BooleanRedux.h:
 /usr/include/eigen3/Eigen/src/Core/Select.h:
 /usr/include/eigen3/Eigen/src/Core/VectorwiseOp.h:
 /usr/include/eigen3/Eigen/src/Core/PartialReduxEvaluator.h:
@@ -362,43 +318,34 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Core/util/ReenableStupidWarnings.h:
 /usr/include/eigen3/Eigen/LU:
 /usr/include/eigen3/Eigen/src/misc/Kernel.h:
-/usr/include/eigen3/Eigen/src/misc/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/misc/Image.h:
 /usr/include/eigen3/Eigen/src/LU/FullPivLU.h:
-/usr/include/eigen3/Eigen/src/LU/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/LU/PartialPivLU.h:
 /usr/include/eigen3/Eigen/src/LU/Determinant.h:
 /usr/include/eigen3/Eigen/src/LU/InverseImpl.h:
 /usr/include/eigen3/Eigen/src/LU/arch/InverseSize4.h:
-/usr/include/eigen3/Eigen/src/LU/arch/../InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/Cholesky:
 /usr/include/eigen3/Eigen/Jacobi:
 /usr/include/eigen3/Eigen/src/Jacobi/Jacobi.h:
-/usr/include/eigen3/Eigen/src/Jacobi/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Cholesky/LLT.h:
-/usr/include/eigen3/Eigen/src/Cholesky/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Cholesky/LDLT.h:
 /usr/include/eigen3/Eigen/QR:
 /usr/include/eigen3/Eigen/Householder:
 /usr/include/eigen3/Eigen/src/Householder/Householder.h:
-/usr/include/eigen3/Eigen/src/Householder/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Householder/HouseholderSequence.h:
 /usr/include/eigen3/Eigen/src/Householder/BlockHouseholder.h:
 /usr/include/eigen3/Eigen/src/QR/HouseholderQR.h:
-/usr/include/eigen3/Eigen/src/QR/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/QR/FullPivHouseholderQR.h:
 /usr/include/eigen3/Eigen/src/QR/ColPivHouseholderQR.h:
 /usr/include/eigen3/Eigen/src/QR/CompleteOrthogonalDecomposition.h:
 /usr/include/eigen3/Eigen/SVD:
 /usr/include/eigen3/Eigen/src/misc/RealSvd2x2.h:
 /usr/include/eigen3/Eigen/src/SVD/UpperBidiagonalization.h:
-/usr/include/eigen3/Eigen/src/SVD/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/SVD/SVDBase.h:
 /usr/include/eigen3/Eigen/src/SVD/JacobiSVD.h:
 /usr/include/eigen3/Eigen/src/SVD/BDCSVD.h:
 /usr/include/eigen3/Eigen/Geometry:
 /usr/include/eigen3/Eigen/src/Geometry/OrthoMethods.h:
-/usr/include/eigen3/Eigen/src/Geometry/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Geometry/EulerAngles.h:
 /usr/include/eigen3/Eigen/src/Geometry/Homogeneous.h:
 /usr/include/eigen3/Eigen/src/Geometry/RotationBase.h:
@@ -413,13 +360,10 @@ include/riccatiSolver.hpp:
 /usr/include/eigen3/Eigen/src/Geometry/AlignedBox.h:
 /usr/include/eigen3/Eigen/src/Geometry/Umeyama.h:
 /usr/include/eigen3/Eigen/src/Geometry/arch/Geometry_SIMD.h:
-/usr/include/eigen3/Eigen/src/Geometry/arch/../InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/Eigenvalues:
 /usr/include/eigen3/Eigen/src/Eigenvalues/Tridiagonalization.h:
-/usr/include/eigen3/Eigen/src/Eigenvalues/./InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Eigenvalues/RealSchur.h:
 /usr/include/eigen3/Eigen/src/Eigenvalues/./HessenbergDecomposition.h:
-/usr/include/eigen3/Eigen/src/Eigenvalues/././InternalHeaderCheck.h:
 /usr/include/eigen3/Eigen/src/Eigenvalues/EigenSolver.h:
 /usr/include/eigen3/Eigen/src/Eigenvalues/./RealSchur.h:
 /usr/include/eigen3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h:

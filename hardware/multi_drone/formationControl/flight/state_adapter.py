@@ -4,6 +4,11 @@ import time
 import numpy as np
 from cflib.crazyflie.log import LogConfig
 
+# 100 ms per block. The controller only consumes state at pings, so 10 Hz
+# is ample, and halving the inbound rate matters when five drones share
+# two radios with 20 Hz setpoints going the other way.
+LOG_PERIOD_MS = 100
+
 
 class DroneState:
 	"""Latest log data for one drone.
@@ -24,7 +29,7 @@ class DroneState:
 		self.t_pos = 0.0    # wall clock of last packet, for staleness
 		self.t_att = 0.0
 
-		self.log_pos = LogConfig(name=f'pos{index}', period_in_ms=50)
+		self.log_pos = LogConfig(name=f'pos{index}', period_in_ms=LOG_PERIOD_MS)
 		self.log_pos.add_variable('stateEstimate.x',  'float')
 		self.log_pos.add_variable('stateEstimate.y',  'float')
 		self.log_pos.add_variable('stateEstimate.z',  'float')
@@ -32,7 +37,7 @@ class DroneState:
 		self.log_pos.add_variable('stateEstimate.vy', 'float')
 		self.log_pos.add_variable('stateEstimate.vz', 'float')
 
-		self.log_att = LogConfig(name=f'att{index}', period_in_ms=50)
+		self.log_att = LogConfig(name=f'att{index}', period_in_ms=LOG_PERIOD_MS)
 		self.log_att.add_variable('stabilizer.roll',  'float')
 		self.log_att.add_variable('stabilizer.pitch', 'float')
 		self.log_att.add_variable('stabilizer.yaw',   'float')
@@ -109,7 +114,19 @@ class StateAdapter:
 		for d in self.drones:
 			d.stop()
 
-	def read(self, max_age=0.5):
+	def reorder(self, order):
+		"""Permute the drone list so list position i is formation slot i.
+
+		order[j] is the current list position of the drone that should
+		become slot j. Indices are rewritten so read() fills the right
+		blocks of the state vector — without this the controller attributes
+		each drone's state to the wrong agent in the coupled cost.
+		"""
+		self.drones = [self.drones[i] for i in order]
+		for j, d in enumerate(self.drones):
+			d.index = j
+
+	def read(self, max_age=1.0):
 		"""Snapshot of the current state. Raises if any drone is stale."""
 		stale = [(d.index, d.age()) for d in self.drones if d.age() > max_age]
 		if stale:

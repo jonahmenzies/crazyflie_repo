@@ -3,38 +3,47 @@
 
 params::params(){
 	// TODO: Move to pathManager.cpp
+	// Rectangular circuit, corners plus edge midpoints, with one smooth
+	// altitude cycle per lap. xy is a plain loop so the only thing varying
+	// interestingly is z.
+	//
+	//   z = 0.50 + 0.225 * (1 - cos(2*pi*i/8))
+	//
+	// Low point at waypoint 0, peak at waypoint 4 (diagonally opposite),
+	// continuous across the 7 -> 0 wrap so the loop closes without an
+	// altitude step. Envelope allows waypoints in x [-0.40, 0.40],
+	// y [-0.33, 0.33], z [0.40, 1.03] once the formation offsets
+	// (±0.45 x, ±0.32 y) are added.
 	waypoints.resize(numWaypoints, 3);
 	waypoints.setZero();
-	setWaypoint(0, -0.8, -0.3, 0.8);
-	setWaypoint(1, -0.4, -0.3, 0.8);
-	setWaypoint(2, -0.4,  0.0, 1.1);
-	setWaypoint(3,  0.0,  0.0, 0.8);
-	setWaypoint(4,  0.0, -0.3, 0.8);
-	setWaypoint(5,  0.6, -0.2, 0.8);
-	setWaypoint(6,  0.6,  0.2, 1.5);
-	setWaypoint(7,  0.2,  0.4, 1.5);
-	setWaypoint(8,  0.4,  0.4, 1.2);
-	setWaypoint(9,  0.0,  0.4, 1.0);
-	
+	setWaypoint(0, -0.35, -0.28, 0.50);   // corner, low point
+	setWaypoint(1, -0.35,  0.00, 0.57);
+	setWaypoint(2, -0.35,  0.28, 0.73);   // corner
+	setWaypoint(3,  0.00,  0.28, 0.88);
+	setWaypoint(4,  0.35,  0.28, 0.95);   // corner, peak
+	setWaypoint(5,  0.35,  0.00, 0.88);
+	setWaypoint(6,  0.35, -0.28, 0.73);   // corner
+	setWaypoint(7,  0.00, -0.28, 0.57);
+
+	// Four corners of the rectangle. The centre drone (formerly slot 4,
+	// offset 0,0,+0.12) is gone.
 	formation_offsets.resize(N,3);
-	formation_offsets <<  0.6,  0.4,  0.15,
-	                     -0.5,  0.5,  0.00,
-	                      0.5, -0.5, -0.15,
-	                     -0.6, -0.3,  0.15,
-	                      0.0,  0.0, -0.30;
+	formation_offsets <<  0.45,  0.32,  0.00,
+	                     -0.45,  0.32,  0.00,
+	                      0.45, -0.32,  0.00,
+	                     -0.45, -0.32,  0.00;
 
 	x0.resize(N,10);
 	x0.setZero();
-	setDroneState(0,  -0.2, 0.0, 0.0,   0.1, 0.0, 0.0,  0.95, 0.0, 0.0, 0.0);
-	setDroneState(1,  -1.3, 0.0, 0.0,   0.2, 0.0, 0.0,  0.80, 0.0, 0.0, 0.0);
-	setDroneState(2,  -0.3, 0.0, 0.0,  -0.8, 0.0, 0.0,  0.65, 0.0, 0.0, 0.0);
-	setDroneState(3,  -1.4, 0.0, 0.0,  -0.6, 0.0, 0.0,  0.95, 0.0, 0.0, 0.0);
-	setDroneState(4,  -0.8, 0.0, 0.0,  -0.3, 0.0, 0.0,  0.50, 0.0, 0.0, 0.0);
+	setDroneState(0,   0.18, 0.0, 0.0,   0.00, 0.0, 0.0,  0.55, 0.0, 0.0, 0.0);
+	setDroneState(1,  -0.72, 0.0, 0.0,   0.14, 0.0, 0.0,  0.65, 0.0, 0.0, 0.0);
+	setDroneState(2,   0.03, 0.0, 0.0,  -0.50, 0.0, 0.0,  0.62, 0.0, 0.0, 0.0);
+	setDroneState(3,  -0.75, 0.0, 0.0,  -0.62, 0.0, 0.0,  0.54, 0.0, 0.0, 0.0);
 
 	systemDynamics();
 	controlWeight();
 	stateWeight();
-	
+
 	// Stored sums for efficiency
 	// TODO: Move to ricattiSolver.cpp
 	BR_sum.resize(10*N,10*N);
@@ -91,17 +100,21 @@ void params::systemDynamics(){
 	B = Eigen::kroneckerProduct(E_N, bi);
 }
 void params::stateWeight(){
-	D.resize(5,4);
+	// Incidence matrix, (agents x edges). Spanning tree hubbed at agent 0:
+	//   edge 0: 0 - 1
+	//   edge 1: 0 - 2
+	//   edge 2: 0 - 3
+	// This is what the five-agent graph reduces to once agent 4 (and the
+	// 1-4 edge) is removed.
+	D.resize(4,3);
 	D.setZero();
-	D(0, 0) = 1;
-	D(0, 1) = 1;
+	D(0, 0) =  1;
 	D(1, 0) = -1;
-	D(1, 2) = 1;
-	D(2, 0) = -1;
-	D(2, 3) = 1;
-	D(3, 1) = -1;
-	D(4, 2) = -1;
-	
+	D(0, 1) =  1;
+	D(2, 1) = -1;
+	D(0, 2) =  1;
+	D(3, 2) = -1;
+
 	W = wij * D.cwiseAbs();
 	D_hat = Eigen::kroneckerProduct(D,E_n);
 	Q.resize(N);
@@ -111,7 +124,7 @@ void params::stateWeight(){
 		W_hat[i] = Eigen::kroneckerProduct(Wi, E_n);
 		Q[i] = D_hat * W_hat[i] * D_hat.transpose();
 	}
-	
+
 	q_diag.resize(10*N,10*N);
 	q_diag.setZero();
 	int row_start = leader * 10;

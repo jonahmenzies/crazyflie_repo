@@ -81,7 +81,7 @@ function [x_sol, u_sol, TATD_sol] = semiOpenLoop(sys, ric, replan_interval)
         x_hat      = c_k*x0_plan + e_k;
         u_k        = utils.computeControl(x_hat, s_k, p_k, B, Ri, alpha, N, m, g);
         u_sol(:,k) = u_k;
-
+    
         x_sol(:,k+1) = x_sol(:,k) + dt * (A*x_sol(:,k) + B*u_k);
 
         tau = tau + 1;

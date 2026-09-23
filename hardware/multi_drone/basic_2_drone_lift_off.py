@@ -11,18 +11,38 @@ Supports both:
 import time
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.console import Console
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.crazyflie.swarm import CachedCfFactory, Swarm
 from cflib.crazyflie.log import LogConfig
 import numpy as np
 import math
 
+
+# --- silence cflib boot-console decode noise -------------------------------
+def _tolerant_incoming(self, packet):
+    try:
+        text = packet.data.decode('UTF-8', errors='replace')
+    except Exception:
+        return
+    self.receivedChar.call(text)
+
+
+Console._incoming = _tolerant_incoming
+# ---------------------------------------------------------------------------
+
+
 # Change these to match your drones
-URI_1 = 'radio://0/10/2M/E7E7E7E7E7'
-URI_2 = 'radio://0/60/2M/E7E7E7E7E7'
-URI_3 = 'radio://0/90/2M/E7E7E7E7E7'
+URI_1 = 'radio://0/10/2M/E7E7E7E701'
+URI_2 = 'radio://0/60/2M/E7E7E7E706'
+URI_3 = 'radio://1/90/2M/E7E7E7E709'
 SURVEY_ALT = 0.5
 uris = [URI_1, URI_2, URI_3]
+
+# supervisor.info bit positions — VERIFY against your firmware version
+CAN_FLY    = 1 << 3
+IS_TUMBLED = 1 << 5
+IS_LOCKED  = 1 << 6
 
 
 class FormationController:
@@ -38,6 +58,81 @@ class FormationController:
 
     def initialise(self):
         self.swarm.parallel_safe(self.setup)
+
+    # ==================== PREFLIGHT ====================
+
+    def preflight_check(self, timeout=5.0):
+        """Refuse to fly if any drone reports locked/tumbled/cannot-fly.
+
+        After an emergency stop or a tumble the drone latches into a locked
+        state that only clears on power cycle. Ask the drone directly rather
+        than tracking reboots by hand.
+        """
+        results = {}
+
+        def check(scf):
+            uri = scf.cf.link_uri
+            lg = LogConfig(name='Supervisor', period_in_ms=100)
+            lg.add_variable('supervisor.info', 'uint16_t')
+            state = {'info': None}
+
+            def cb(ts, msg, conf):
+                state['info'] = msg['supervisor.info']
+
+            try:
+                scf.cf.log.add_config(lg)
+                lg.data_received_cb.add_callback(cb)
+                lg.start()
+                start = time.time()
+                while state['info'] is None and time.time() - start < timeout:
+                    time.sleep(0.05)
+                lg.stop()
+            except Exception as ex:
+                print(f'  {uri}  supervisor log failed ({type(ex).__name__})')
+
+            results[uri] = state['info']
+
+        self.swarm.parallel_safe(check)
+
+        print('\nPreflight check:')
+        ok = True
+        for uri in uris:
+            info = results.get(uri)
+            if info is None:
+                print(f'  {uri}  NO SUPERVISOR DATA')
+                ok = False
+                continue
+            problems = []
+            if info & IS_LOCKED:
+                problems.append('LOCKED')
+            if info & IS_TUMBLED:
+                problems.append('TUMBLED')
+            if not (info & CAN_FLY):
+                problems.append('CANNOT FLY')
+            if problems:
+                print(f'  {uri}  {", ".join(problems)} — power cycle required')
+                ok = False
+            else:
+                print(f'  {uri}  ready')
+
+        if not ok:
+            raise RuntimeError('preflight check failed — power cycle affected drones')
+        print('All drones ready.\n')
+
+    def reset_estimators(self):
+        for uri, drone in self.drone_states.items():
+            drone.scf.cf.param.set_value('kalman.resetEstimation', '1')
+        time.sleep(0.2)
+        for uri, drone in self.drone_states.items():
+            drone.scf.cf.param.set_value('kalman.resetEstimation', '0')
+        time.sleep(2.0)
+
+    def emergency_stop(self):
+        for uri, drone in self.drone_states.items():
+            try:
+                drone.scf.cf.commander.send_stop_setpoint()
+            except Exception:
+                pass
 
     # ==================== FORMATION COMMANDS ====================
 
@@ -60,19 +155,27 @@ class FormationController:
         self.fly_to_setpoints()
 
     def land(self):
+        # Freeze x/y at current position so a drifting drone doesn't chase
+        # its own drift on the way down.
+        hold = {uri: (d.x, d.y, d.yaw) for uri, d in self.drone_states.items()}
         max_z = max(drone.current_setpoint['z'] for drone in self.drone_states.values())
         heights = np.arange(max_z, 0.05, -0.05)
         for altitude in heights:
             for uri, drone in self.drone_states.items():
-                drone.current_setpoint = {'x': drone.x, 'y': drone.y, 'z': altitude, 'yaw': drone.yaw}
-            self.fly_to_setpoints()
+                hx, hy, hyaw = hold[uri]
+                drone.current_setpoint = {'x': hx, 'y': hy, 'z': altitude, 'yaw': hyaw}
+            self.fly_to_setpoints(timeout=3.0)
         for uri, drone in self.drone_states.items():
             drone.scf.cf.commander.send_stop_setpoint()
 
     # ==================== FORMATION CORE ====================
 
-    def fly_to_setpoints(self):
+    def fly_to_setpoints(self, timeout=10.0):
+        start = time.time()
         while not self.all_reached():
+            if time.time() - start > timeout:
+                print('  timeout waiting for setpoint convergence')
+                return
             self.send_setpoints()
             time.sleep(0.05)
 
@@ -173,8 +276,12 @@ class DroneState:
         self.current_setpoint = {'x': self.x, 'y': self.y, 'z': SURVEY_ALT, 'yaw': self.yaw}
         self.fly_to_setpoint()
 
-    def fly_to_setpoint(self):
+    def fly_to_setpoint(self, timeout=10.0):
+        start = time.time()
         while not self.waypoint_reached_check():
+            if time.time() - start > timeout:
+                print('  timeout waiting for setpoint convergence')
+                return
             self.scf.cf.commander.send_position_setpoint(
                 self.current_setpoint['x'],
                 self.current_setpoint['y'],
@@ -183,10 +290,11 @@ class DroneState:
             time.sleep(0.05)
 
     def land(self):
+        hx, hy, hyaw = self.x, self.y, self.yaw
         heights = np.arange(self.current_setpoint['z'], 0.05, -0.05)
         for altitude in heights:
-            self.current_setpoint = {'x': self.x, 'y': self.y, 'z': altitude, 'yaw': self.yaw}
-            self.fly_to_setpoint()
+            self.current_setpoint = {'x': hx, 'y': hy, 'z': altitude, 'yaw': hyaw}
+            self.fly_to_setpoint(timeout=3.0)
         self.scf.cf.commander.send_stop_setpoint()
 
     def orient(self, desired_yaw):
@@ -228,28 +336,21 @@ def main():
         controller = FormationController(swarm)
         controller.initialise()
 
+        # Refuse to arm if any drone is still latched from a previous stop.
+        controller.preflight_check()
+
+        controller.reset_estimators()
+
         try:
-            # Formation-wide control:
             controller.takeoff()
             controller.hover(3.0)
             controller.orient(0.0)
             controller.hover(3.0)
             controller.land()
 
-            # Individual drone control example:
-            # controller.drone_states[URI_1].takeoff()
-            # controller.drone_states[URI_1].hover(3.0)
-            # controller.drone_states[URI_1].land()
-
-            # Formation offset example:
-            # controller.drone_states[URI_1].current_setpoint = {'x': 0.0, 'y': 0.0, 'z': 0.5, 'yaw': 0.0}
-            # controller.offset_from_target(URI_1, URI_2, 0.5, 0.0, 0.0)
-            # controller.offset_from_target(URI_1, URI_3, -0.5, 0.0, 0.0)
-            # controller.fly_to_setpoints()
-
         except KeyboardInterrupt:
-            controller.land()
-            print("\nStopping...")
+            print('\nEmergency stop')
+            controller.emergency_stop()
         finally:
             controller.stop_logging()
 
