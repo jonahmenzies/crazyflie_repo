@@ -1,24 +1,36 @@
-"""Measured vs predicted altitude for all drones. For diagnosing sink."""
+# Measured vs predicted altitude for every drone. For diagnosing sink.
+#
+#     python3 analysis/plot_z.py logs/flight_<stamp>_full.csv
+#
+# Run from formationControl/
 
 import re
 import sys
-import pandas as pd
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 path = sys.argv[1]
-df = pd.read_csv(path)
 
-N = sum(1 for c in df.columns if re.fullmatch(r'mz\d+', c))
+# Read the CSV by column name. Empty cells become NaN.
+data = np.genfromtxt(path, delimiter=',', names=True)
+
+# Number of drones, from the measured z columns (mz0, mz1, ...)
+N = sum(1 for c in data.dtype.names if re.fullmatch(r'mz\d+', c))
 
 fig, ax = plt.subplots(figsize=(11, 6))
 colors = plt.cm.tab10.colors
 
 for i in range(N):
 	c = colors[i % 10]
-	ax.plot(df['t'], df[f'pz{i}'], '--', color=c, alpha=0.5,
+
+	# Predicted, dashed
+	ax.plot(data['t'], data[f'pz{i}'], '--', color=c, alpha=0.5,
 	        label=f'slot {i} predicted')
-	m = df[['t', f'mz{i}']].dropna()
-	ax.plot(m['t'], m[f'mz{i}'], '-', color=c, linewidth=1.8,
+
+	# Measured, solid, from rows that have it
+	has = ~np.isnan(data[f'mz{i}'])
+	ax.plot(data['t'][has], data[f'mz{i}'][has], '-', color=c, linewidth=1.8,
 	        label=f'slot {i} measured')
 
 ax.axhline(0.0, color='k', linewidth=1.2)
@@ -31,9 +43,9 @@ ax.grid(alpha=0.3)
 plt.tight_layout()
 plt.show()
 
+# Start, end and lowest measured height per drone
 print('measured z:')
 for i in range(N):
-	m = df[f'mz{i}'].dropna()
+	m = data[f'mz{i}'][~np.isnan(data[f'mz{i}'])]
 	if len(m):
-		print(f'  slot {i}: start {m.iloc[0]:+.3f}  end {m.iloc[-1]:+.3f}  '
-		      f'min {m.min():+.3f}')
+		print(f'  slot {i}: start {m[0]:+.3f}  end {m[-1]:+.3f}  min {m.min():+.3f}')
