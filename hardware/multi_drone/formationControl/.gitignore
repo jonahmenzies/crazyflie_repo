@@ -8,3 +8,7 @@ generator/src/*.d
 
 # cflib's cache of each drone's log and param tables
 cache/
+
+# Keep real flight logs (the repo root ignores *.csv), but not dry runs
+!logs/*.csv
+logs/dry/

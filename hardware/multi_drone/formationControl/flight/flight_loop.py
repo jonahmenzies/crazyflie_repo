@@ -256,7 +256,7 @@ def dry(interval):
 	x_meas = formation_start(a)
 	ping = 0
 
-	with Logger(a, mapping, note=f'dry run, {interval}s, PWM') as log:
+	with Logger(a, mapping, path='logs/dry', note=f'dry run, {interval}s, PWM') as log:
 		t_start = time.time()
 
 		for k in range(0, a.n_steps, a.stride):

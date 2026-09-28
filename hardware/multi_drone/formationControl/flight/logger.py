@@ -153,7 +153,7 @@ if __name__ == '__main__':
 	for i, offset in enumerate(a.formation_offsets):
 		x0[i*10 + 0], x0[i*10 + 3], x0[i*10 + 6] = a.xd0 + offset
 
-	with Logger(a, mapping, note='dry run, no hardware') as log:
+	with Logger(a, mapping, path='logs/dry', note='dry run, no hardware') as log:
 		for k in range(0, a.n_steps, a.stride):
 			x_pred = a.predict(k, 0, x0)
 			log.write(k, 0, x0 if k == 0 else None, x_pred)
