@@ -10,9 +10,6 @@ swarm:
   required: 4
 
 safety:
-  # Garage. Trajectory extremes reach x [-0.80, 0.75], y [-0.57, 0.62],
-  # z [0.60, 1.07], so this sits ~10 cm outside the commanded path —
-  # tight enough to trip on real drift, loose enough not to false-trip.
   geofence:
     x: [-1.20, 1.60]
     y: [-0.850, 0.70]
