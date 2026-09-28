@@ -1,117 +1,78 @@
-"""Measure a_theta and a_phi properly.
-
-Attitude mode, real steps, 10 ms logging, fit the exponential rise
-directly rather than differentiating. The drone hovers on position
-setpoints between steps so it stays put.
-
-    theta(t) = theta_cmd * (1 - exp(-a*t))    ->    tau = 1/a
-"""
+# Measures a_theta and a_phi: how fast pitch and roll follow their commands.
+#
+# The drone hovers on position setpoints, then gets short attitude steps.
+# Each step is fitted to  angle(t) = cmd * (1 - exp(-a*t)),  tau = 1/a
+#
+#     python3 safety_check/attitude_id.py [uri]      default is drone 1
+#
+# Run from formationControl/
 
 import sys
 import time
+
 import numpy as np
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
-from cflib.crazyflie.console import Console
 from cflib.crazyflie.log import LogConfig
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from scipy.optimize import curve_fit
 
+from common import uri_from_args, preflight, reset_estimator, climb, hold, land
 
-def _tolerant_incoming(self, packet):
-	try:
-		text = packet.data.decode('UTF-8', errors='replace')
-	except Exception:
-		return
-	self.receivedChar.call(text)
-
-
-Console._incoming = _tolerant_incoming
-
-URI      = sys.argv[1] if len(sys.argv) > 1 else 'radio://0/10/2M/E7E7E7E701'
-Z        = 0.6
-STEP_DEG = 8.0      # commanded lean, degrees. Big enough to see clearly.
-STEP_S   = 0.5      # how long to hold each step
-RECOVER  = 2.5      # position-hold between steps, to stop drift
+URI      = uri_from_args()
+Z        = 0.6      # hover height, m
+STEP_DEG = 8.0      # commanded lean, degrees
+STEP_S   = 0.5      # how long each step lasts, s
+RECOVER  = 2.5      # position hold between steps, s
 N_STEPS  = 4        # steps per axis
 
-CAN_FLY    = 1 << 3
-IS_TUMBLED = 1 << 5
-IS_LOCKED  = 1 << 6
-
-samples = []
-sup     = {'info': None}
-hover   = {'pwm': None}
+samples = []              # (time, roll, pitch)
+hover = {'pwm': None}     # thrust the firmware uses to hover
 
 
-def att_cb(ts, msg, conf):
-	samples.append((time.time(),
-	                msg['stabilizer.roll'], msg['stabilizer.pitch']))
+def on_attitude(timestamp, data, logconf):
+	samples.append((time.time(), data['stabilizer.roll'], data['stabilizer.pitch']))
 
 
-def thr_cb(ts, msg, conf):
-	hover['pwm'] = msg['stabilizer.thrust']
+def on_thrust(timestamp, data, logconf):
+	hover['pwm'] = data['stabilizer.thrust']
 
 
-def sup_cb(ts, msg, conf):
-	sup['info'] = msg['supervisor.info']
-
+# ---- Fly the steps ----
 
 cflib.crtp.init_drivers()
 print(f'Connecting to {URI}...')
 
 with SyncCrazyflie(URI, cf=Crazyflie(rw_cache='./cache')) as scf:
 	cf = scf.cf
+	preflight(scf)
 
-	lg = LogConfig(name='Sup', period_in_ms=100)
-	lg.add_variable('supervisor.info', 'uint16_t')
-	cf.log.add_config(lg)
-	lg.data_received_cb.add_callback(sup_cb)
-	lg.start()
-	t0 = time.time()
-	while sup['info'] is None and time.time() - t0 < 5.0:
-		time.sleep(0.05)
-	lg.stop(); time.sleep(0.2)
-
-	info = sup['info']
-	if info is None:
-		sys.exit('no supervisor data')
-	if (info & IS_LOCKED) or (info & IS_TUMBLED) or not (info & CAN_FLY):
-		sys.exit('drone is locked/tumbled — power cycle it')
-	print('preflight ok')
-
-	# Attitude at 10 ms. Two variables only, to keep the packet small
-	# enough to actually arrive at that rate.
+	# Attitude every 10 ms. Only two variables so the packets keep up.
 	att = LogConfig(name='Att', period_in_ms=10)
-	att.add_variable('stabilizer.roll',  'float')
+	att.add_variable('stabilizer.roll', 'float')
 	att.add_variable('stabilizer.pitch', 'float')
 	cf.log.add_config(att)
-	att.data_received_cb.add_callback(att_cb)
+	att.data_received_cb.add_callback(on_attitude)
 
+	# Thrust, to find the hover PWM
 	thr = LogConfig(name='Thr', period_in_ms=100)
 	thr.add_variable('stabilizer.thrust', 'float')
 	cf.log.add_config(thr)
-	thr.data_received_cb.add_callback(thr_cb)
+	thr.data_received_cb.add_callback(on_thrust)
 
-	cf.param.set_value('kalman.resetEstimation', '1')
-	time.sleep(0.2)
-	cf.param.set_value('kalman.resetEstimation', '0')
-	time.sleep(2.0)
+	reset_estimator(cf)
 
 	print(f'\n{N_STEPS} steps per axis at {STEP_DEG} degrees.')
 	print('The drone WILL lurch on each step. Needs ~1.5 m clear space.')
 	input('Enter to arm, Ctrl-C to abort: ')
 
-	events = []      # (t_start, axis, sign)
+	events = []    # (start time, axis, sign) of each step
 
 	try:
-		cf.commander.send_setpoint(0, 0, 0, 0)
+		cf.commander.send_setpoint(0, 0, 0, 0)    # unlock
+		climb(cf, Z, 3.0)
 
-		for s in range(int(3.0 / 0.05)):
-			cf.commander.send_position_setpoint(
-				0, 0, Z * (s + 1) / (3.0 / 0.05), 0)
-			time.sleep(0.05)
-
+		# Read the hover thrust (waits up to 2 s)
 		thr.start()
 		t0 = time.time()
 		while hover['pwm'] is None and time.time() - t0 < 2.0:
@@ -123,57 +84,52 @@ with SyncCrazyflie(URI, cf=Crazyflie(rw_cache='./cache')) as scf:
 		print(f'hover pwm {pwm}, stepping...')
 
 		att.start()
-
 		for axis in ('roll', 'pitch'):
 			for n in range(N_STEPS):
-				sign = 1.0 if n % 2 == 0 else -1.0
+				sign = 1.0 if n % 2 == 0 else -1.0    # alternate direction
 
-				# recover on position setpoints
-				t0 = time.time()
-				while time.time() - t0 < RECOVER:
-					cf.commander.send_position_setpoint(0, 0, Z, 0)
-					time.sleep(0.05)
+				# Settle on position setpoints
+				hold(cf, Z, RECOVER)
 
-				# step, on attitude
+				# Step, on attitude setpoints
 				events.append((time.time(), axis, sign))
+				roll = sign * STEP_DEG if axis == 'roll' else 0.0
+				pitch = sign * STEP_DEG if axis == 'pitch' else 0.0
 				t0 = time.time()
 				while time.time() - t0 < STEP_S:
-					r = sign * STEP_DEG if axis == 'roll'  else 0.0
-					p = sign * STEP_DEG if axis == 'pitch' else 0.0
-					cf.commander.send_setpoint(r, p, 0, pwm)
+					cf.commander.send_setpoint(roll, pitch, 0, pwm)
 					time.sleep(0.01)
 
-		att.stop(); time.sleep(0.3)
-
-		for s in range(int(3.0 / 0.05)):
-			cf.commander.send_position_setpoint(
-				0, 0, max(Z * (1 - (s + 1) / (3.0 / 0.05)), 0.05), 0)
-			time.sleep(0.05)
-		cf.commander.send_stop_setpoint()
+		att.stop()
+		time.sleep(0.3)
+		land(cf, Z, 3.0)
 
 	except KeyboardInterrupt:
 		print('\naborted')
 		cf.commander.send_stop_setpoint()
 
-# --- fit ---
+
+# ---- Fit each step ----
+
 if not samples:
 	sys.exit('no attitude samples')
 
 d = np.array(samples)
-print(f'\n{len(d)} samples, mean period '
-      f'{1000*np.diff(d[:,0]).mean():.1f} ms')
+print(f'\n{len(d)} samples, mean period {1000*np.diff(d[:,0]).mean():.1f} ms')
 
 
+# First-order step response
 def rise(t, a, amp, off):
 	return off + amp * (1.0 - np.exp(-a * t))
 
 
-fits = {'roll': [], 'pitch': []}
+fits = {'roll': [], 'pitch': []}    # good values of a for each axis
 
 for t_start, axis, sign in events:
+	# Samples during this step
 	col = 1 if axis == 'roll' else 2
-	m = (d[:, 0] >= t_start) & (d[:, 0] < t_start + STEP_S)
-	seg = d[m]
+	in_step = (d[:, 0] >= t_start) & (d[:, 0] < t_start + STEP_S)
+	seg = d[in_step]
 	if len(seg) < 20:
 		continue
 
@@ -181,34 +137,38 @@ for t_start, axis, sign in events:
 	yy = seg[:, col]
 
 	try:
-		popt, _ = curve_fit(rise, tt, yy,
-		                    p0=[10.0, sign * STEP_DEG, yy[0]],
-		                    maxfev=8000)
+		popt, _ = curve_fit(rise, tt, yy, p0=[10.0, sign * STEP_DEG, yy[0]], maxfev=8000)
 	except Exception:
 		continue
 
+	# How well the fit matches (R^2)
 	a_hat = popt[0]
-	pred  = rise(tt, *popt)
-	r2    = 1 - ((yy - pred)**2).sum() / ((yy - yy.mean())**2).sum()
+	pred = rise(tt, *popt)
+	r2 = 1 - ((yy - pred)**2).sum() / ((yy - yy.mean())**2).sum()
 
+	# Keep only good fits
 	if a_hat > 0 and r2 > 0.7:
-		fits[axis].append((a_hat, r2, len(seg)))
+		fits[axis].append(a_hat)
+
+	tau = 1/a_hat if a_hat > 0 else float('nan')
 	print(f'  {axis:5s} {sign:+.0f}  a = {a_hat:6.2f}  '
-	      f'tau = {1/a_hat if a_hat > 0 else float("nan"):5.3f}s  '
-	      f'R2 = {r2:5.3f}  n = {len(seg)}')
+	      f'tau = {tau:5.3f}s  R2 = {r2:5.3f}  n = {len(seg)}')
+
+
+# ---- Results ----
 
 print()
-out = {}
+result = {}
 for axis in ('roll', 'pitch'):
 	if not fits[axis]:
 		print(f'{axis}: no usable fits')
 		continue
-	a = np.array([f[0] for f in fits[axis]])
-	out[axis] = a.mean()
+	a = np.array(fits[axis])
+	result[axis] = a.mean()
 	print(f'{axis:5s}  a = {a.mean():6.2f} +/- {a.std():5.2f}   '
 	      f'tau = {1/a.mean():5.3f}s   ({len(a)} good fits)')
 
-if 'pitch' in out and 'roll' in out:
+if 'pitch' in result and 'roll' in result:
 	print(f'\nparams.hpp:')
-	print(f'  a_theta = {out["pitch"]:.2f};')
-	print(f'  a_phi   = {out["roll"]:.2f};')
+	print(f'  a_theta = {result["pitch"]:.2f};')
+	print(f'  a_phi   = {result["roll"]:.2f};')
