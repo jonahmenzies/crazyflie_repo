@@ -196,7 +196,7 @@ def mission(sw, adapter, a, fence, note, volts):
 				raise RuntimeError(f'geofence (measured): {why}')
 
 			pwm.send(sw, x_pred, u, mapping, a.N, a.mass, a.g)
-			log.write(k, ping, x_now, x_pred, xd=(a.xd[k, 0], a.xd[k, 3]))
+			log.write(k, ping, x_now, x_pred, xd=a.xd[k])
 
 
 # ---- Full flight ----
@@ -280,7 +280,7 @@ def dry(interval):
 			if not ok:
 				print(f'  GEOFENCE t={k*a.dt:5.2f}s  {why}')
 
-			log.write(k, ping, x_meas, x_pred, xd=(a.xd[k, 0], a.xd[k, 3]))
+			log.write(k, ping, x_meas, x_pred, xd=a.xd[k])
 
 
 if __name__ == '__main__':

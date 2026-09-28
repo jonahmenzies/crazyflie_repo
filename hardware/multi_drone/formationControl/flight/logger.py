@@ -12,8 +12,8 @@ STATE_NAMES = ['x', 'xd', 'th', 'y', 'yd', 'ph', 'z', 'zd', 'ps', 'r']
 
 
 # Logs every tick of a flight. Each flight writes four files into logs/:
-#     flight_<stamp>.csv            same columns as the sim, for plot.py and computeTATD
-#     flight_<stamp>_full.csv       measured and predicted state, for diagnosis
+#     flight_<stamp>.csv            same columns as the sim, for plot.py
+#     flight_<stamp>_full.csv       measured, predicted and reference, for diagnosis and tatd.py
 #     flight_<stamp>_manifest.json  copy of the arrays manifest used
 #     flight_<stamp>_meta.json      flight settings, drone slots and battery voltages
 class Logger:
@@ -62,7 +62,8 @@ class Logger:
 		header += ['xd', 'yd']
 		self.sim.writerow(header)
 
-		# Full file. Columns: timing, then measured (m) states, then predicted (p) states
+		# Full file. Columns: timing, measured (m) states, predicted (p) states,
+		# then each drone's reference position (rx, ry, rz)
 		self.full_file = open(self.full_path, 'w', newline='')
 		self.full = csv.writer(self.full_file)
 
@@ -70,13 +71,17 @@ class Logger:
 		for tag in ('m', 'p'):
 			for i in range(self.N):
 				header += [f'{tag}{name}{i}' for name in STATE_NAMES]
+		for i in range(self.N):
+			header += [f'rx{i}', f'ry{i}', f'rz{i}']
 		self.full.writerow(header)
 
 		self.n_rows = 0      # rows written
 		self.n_meas = 0      # rows that had a measured state
 		self.tick_ms = []    # time between rows, for the timing summary
 
-	# Write one row to each file. x_meas can be None if nothing was measured.
+	# Write one row to each file.
+	# x_meas can be None if nothing was measured.
+	# xd is the reference row for this timestep (a.xd[k]), or None.
 	def write(self, k, ping, x_meas, x_pred, xd=None):
 		# Wall clock timing
 		wall = time.time()
@@ -94,23 +99,28 @@ class Logger:
 
 		t = k * self.dt
 
-		# Sim-style row: predicted x, y of each drone, then the reference
+		# Sim-style row: predicted x, y of each drone, then drone 0's reference x, y
 		row = [f'{t:.4f}']
 		for i in range(self.N):
 			row += [f'{x_pred[i*10 + 0]:.5f}', f'{x_pred[i*10 + 3]:.5f}']
 		if xd is not None:
-			row += [f'{xd[0]:.5f}', f'{xd[1]:.5f}']
+			row += [f'{xd[0]:.5f}', f'{xd[3]:.5f}']
 		else:
 			row += ['', '']
 		self.sim.writerow(row)
 
-		# Full row: timing, measured state (blank if none), predicted state
+		# Full row: timing, measured state (blank if none), predicted state, references
 		row = [f'{t:.4f}', k, ping, f'{elapsed:.4f}', f'{tick_ms:.2f}']
 		if x_meas is not None:
 			row += [f'{v:.5f}' for v in x_meas]
 		else:
 			row += [''] * (10 * self.N)
 		row += [f'{v:.5f}' for v in x_pred]
+		for i in range(self.N):
+			if xd is not None:
+				row += [f'{xd[i*10 + 0]:.5f}', f'{xd[i*10 + 3]:.5f}', f'{xd[i*10 + 6]:.5f}']
+			else:
+				row += ['', '', '']
 		self.full.writerow(row)
 
 		self.n_rows += 1
@@ -156,5 +166,5 @@ if __name__ == '__main__':
 	with Logger(a, mapping, path='logs/dry', note='dry run, no hardware') as log:
 		for k in range(0, a.n_steps, a.stride):
 			x_pred = a.predict(k, 0, x0)
-			log.write(k, 0, x0 if k == 0 else None, x_pred)
+			log.write(k, 0, x0 if k == 0 else None, x_pred, xd=a.xd[k])
 			time.sleep(0.001)
