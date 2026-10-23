@@ -29,6 +29,10 @@ struct params{
 	Eigen::MatrixXd waypoints;          // formation centre path, one row (x, y, z) per waypoint
 	Eigen::MatrixXd formation_offsets;  // each drone's offset from the centre, N x 3
 
+	// ---- Starting state, only used by the sims in simflight/ ----
+	Eigen::VectorXd x0;                 // every drone's state at t = 0, 10N
+	Eigen::VectorXd x0_flat() const { return x0; }
+
 	// ---- Dynamics ----
 	Eigen::MatrixXd Ai;     // one drone, 10 x 10
 	Eigen::MatrixXd bi;     // one drone, 10 x 4

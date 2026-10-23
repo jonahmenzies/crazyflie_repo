@@ -1,0 +1,8 @@
+stamp,interval,path,formation,mode,hover,vbat_min,jump_m,end,tatd20_m
+20261023_093923,1.5,oval,flat,pwm,live,4.06,0.079,done,0.3316
+20261023_094028,1.5,oval,flat,pwm,live,3.98,0.054,done,0.2438
+20261023_094228,1.5,oval,flat,pwm,live,3.89,0.141,stop 12.3s,
+20261023_094448,1.5,oval,flat,pwm,live,3.84,0.232,fence 5.9s (m),
+20261023_100412,1,oval,flat,pos,live,4.09,0.052,stop 8.1s,
+20261023_100626,1,oval,flat,pos,live,4.01,0.105,done,0.5850
+20261023_100837,1,oval,flat,pos,live,3.95,0.064,done,0.2759

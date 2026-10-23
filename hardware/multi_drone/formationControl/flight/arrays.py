@@ -1,13 +1,41 @@
 import json
+import os
 import numpy as np
+
+
+# Number of timesteps in interval, or None if it isn't a whole number of steps
+def steps_in(interval, dt):
+	k = interval / dt
+	return round(k) if abs(k - round(k)) < 1e-6 else None
+
+
+# True if the arrays in path can be used for this replan interval:
+# they were made after the generator binary was last built (so they match
+# the current params), and their interval divides this one. A ping's arrays
+# only depend on its start time, so the 0.1 s set contains the 1 s, 3 s,
+# 5 s, ... sets as subsets of its pings.
+def reusable(path, interval, binary):
+	manifest_path = f'{path}/manifest.json'
+	if not os.path.exists(manifest_path):
+		return False
+	if os.path.getmtime(manifest_path) < os.path.getmtime(binary):
+		return False
+
+	with open(manifest_path) as f:
+		manifest = json.load(f)
+	k_base = steps_in(manifest['replan_interval'], manifest['dt'])
+	k_want = steps_in(interval, manifest['dt'])
+	return bool(k_base and k_want and k_want % k_base == 0)
 
 
 # Loads the arrays made by generator/generate.
 # Each ping (replan) has its own c, e, cu and eu arrays.
 # x_meas must be the state measured at the start of the ping it is used with.
+# interval picks a coarser replan interval out of a finer set of arrays
+# (e.g. 3 s out of the 0.1 s set). None uses every ping in the set.
 class Arrays:
 
-	def __init__(self, path='arrays'):
+	def __init__(self, path='arrays', interval=None):
 		# Read the manifest that describes the arrays
 		with open(f'{path}/manifest.json') as f:
 			manifest = json.load(f)
@@ -22,15 +50,18 @@ class Arrays:
 		self.stride   = manifest['stride']           # arrays keep every stride-th step
 		self.n_steps  = manifest['n_steps']          # timesteps in the mission
 		self.tT       = manifest['tT']               # mission length, s
-		self.interval = manifest['replan_interval']  # time between pings, s
+		self.base     = manifest['replan_interval']  # interval the arrays were made for, s
+		self.interval = interval if interval is not None else self.base  # interval flown, s
 
 		# Physical constants
 		self.mass = manifest['mass']
 		self.g    = manifest['g']
 
-		# Formation shape and reference start point
+		# Formation shape and the formation centre at t = 0.
+		# The manifest's xd0 is drone 0's position (centre + its offset),
+		# so take drone 0's offset off to get the centre.
 		self.formation_offsets = np.array(manifest['formation_offsets'])  # (N, 3)
-		self.xd0               = np.array(manifest['xd0'])                # (3,)
+		self.xd0 = np.array(manifest['xd0']) - self.formation_offsets[0]  # (3,)
 
 		# Reference trajectory, one row per timestep
 		self.xd = np.fromfile(f'{path}/xd.bin').reshape(-1, self.n)
@@ -42,7 +73,17 @@ class Arrays:
 		self.eu = []
 		self.k0 = []    # first timestep of each ping
 
+		# Ping start steps wanted for this interval
+		k_base = steps_in(self.base, self.dt)
+		k_want = steps_in(self.interval, self.dt)
+		if not (k_base and k_want and k_want % k_base == 0):
+			raise ValueError(f'{self.interval}s pings are not in the {self.base}s arrays')
+		wanted = set(range(0, self.n_steps, k_want))
+
 		for i, replan in enumerate(manifest['replans']):
+			if replan['k0'] not in wanted:
+				continue
+
 			# Load this ping's four arrays
 			c  = np.fromfile(f'{path}/c_{i:03d}.bin').reshape(-1, self.n, self.n)
 			e  = np.fromfile(f'{path}/e_{i:03d}.bin').reshape(-1, self.n)
@@ -63,6 +104,11 @@ class Arrays:
 			self.k0.append(replan['k0'])
 
 		self.n_pings = len(self.c)
+
+		# Every wanted ping must be in the set
+		missing = sorted(wanted - set(self.k0))
+		if missing:
+			raise ValueError(f'arrays have no ping starting at k={missing}')
 
 	# Convert global timestep k into a row number in this ping's arrays
 	def row(self, k, ping):
@@ -92,7 +138,8 @@ class Arrays:
 		mb = sum(arr.nbytes for arr in all_arrays) / 1e6
 		return (f'Arrays(n={self.n}, m={self.m}, dt={self.dt}, '
 		        f'stride={self.stride}, pings={self.n_pings}, '
-		        f'interval={self.interval}s, tT={self.tT:.2f}s, {mb:.1f} MB)')
+		        f'interval={self.interval}s, tT={self.tT:.2f}s, {mb:.1f} MB'
+		        + (f', from {self.base}s set)' if self.interval != self.base else ')'))
 
 
 # Self test: python3 flight/arrays.py (run from formationControl/)

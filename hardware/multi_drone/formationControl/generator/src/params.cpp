@@ -7,15 +7,22 @@ params::params(){
 	// ---- Waypoints ----
 	// Path of the formation centre, one {x, y, z} per waypoint.
 	// The number of waypoints comes from this list.
+	// Flat oval at 0.70 m, centred on the geofence middle (0.20, -0.075).
+	// Last point returns to the start to close the loop.
 	const std::vector<std::array<double, 3>> wp = {
-		{-0.35, -0.28, 0.50},   // 0  corner, low point
-		{-0.35,  0.00, 0.57},   // 1
-		{-0.35,  0.28, 0.73},   // 2  corner
-		{ 0.00,  0.28, 0.88},   // 3
-		{ 0.35,  0.28, 0.95},   // 4  corner, peak
-		{ 0.35,  0.00, 0.88},   // 5
-		{ 0.35, -0.28, 0.73},   // 6  corner
-		{ 0.00, -0.28, 0.57},   // 7
+		{-0.420, -0.075, 0.70},   // 0  start, west end
+		{-0.337, -0.205, 0.70},   // 1
+		{-0.110, -0.300, 0.70},   // 2
+		{ 0.200, -0.335, 0.70},   // 3  south side
+		{ 0.510, -0.300, 0.70},   // 4
+		{ 0.737, -0.205, 0.70},   // 5
+		{ 0.820, -0.075, 0.70},   // 6  east end
+		{ 0.737,  0.055, 0.70},   // 7
+		{ 0.510,  0.150, 0.70},   // 8
+		{ 0.200,  0.185, 0.70},   // 9  north side
+		{-0.110,  0.150, 0.70},   // 10
+		{-0.337,  0.055, 0.70},   // 11
+		{-0.420, -0.075, 0.70},   // 12 back to start
 	};
 
 	// Stop if there are too few waypoints, or two in a row are the same point
@@ -38,7 +45,8 @@ params::params(){
 	}
 
 	// ---- Formation ----
-	// Each drone's offset from the centre (x, y, z): four corners of a rectangle
+	// Each drone's offset from the centre (x, y, z): flat rectangle.
+	// All drones at the same height, so none sits in another's downwash.
 	formation_offsets.resize(N, 3);
 	formation_offsets <<  0.45,  0.32,  0.00,
 	                     -0.45,  0.32,  0.00,

@@ -10,17 +10,23 @@ from swarm import label
 
 # ---- Thrust calibration ----
 
-# (hover_pwm, slope) per drone, measured with safety_check/thrust_id.py
-# slope is newtons per PWM count
+# (hover_pwm, slope) per drone. slope is newtons per PWM count.
+# Drones 1, 6, 8, 9: safety_check/hover_cal.py, 22 Oct 2026. The slope is
+# from hovering with and without 2.8 g added, scaled by 27 g / the drone's
+# weighed mass (32.3, 32.1, 32.8, 31.7 g) so that a given u_z moves the
+# drone the way the model's 27 g drone would. Drone 10: thrust_id.py.
+# The hover PWM here is only a fallback: flight_loop measures each drone's
+# hover live before every mission and puts it in HOVER_LIVE.
 THRUST = {
-	'radio://0/10/2M/E7E7E7E701':  (37253, 5.773e-06),
-	'radio://0/60/2M/E7E7E7E706':  (38742, 6.332e-06),
-	'radio://1/80/2M/E7E7E7E708':  (42333, 5.397e-06),
-	'radio://1/90/2M/E7E7E7E709':  (39217, 4.437e-06),
+	'radio://0/10/2M/E7E7E7E701':  (37480, 6.856e-06),
+	'radio://0/60/2M/E7E7E7E706':  (39002, 5.932e-06),
+	'radio://1/80/2M/E7E7E7E708':  (43461, 5.689e-06),
+	'radio://1/90/2M/E7E7E7E709':  (40115, 6.496e-06),
 	'radio://1/100/2M/E7E7E7E710': (47501, 4.221e-06),
 }
 THRUST_DEFAULT = (40000, 5.0e-06)    # used if a drone has no calibration
 HOVER_N = 0.26487                    # hover thrust, mass * g, newtons
+HOVER_LIVE = {}                      # uri -> hover PWM measured this flight
 
 # ---- Limits (same as inclinationProtection in computeControl.cpp) ----
 
@@ -28,12 +34,14 @@ TILT_MAX = np.pi / 4.0          # max pitch and roll, rad
 YAWRATE_MAX = 2.0 * np.pi       # max yaw rate, rad/s
 
 
-# Get a drone's (hover_pwm, slope), warning if it has no calibration
+# Get a drone's (hover_pwm, slope), warning if it has no calibration.
+# The hover measured live this flight is used if there is one.
 def thrust_cal(uri):
 	if uri not in THRUST:
 		print(f'  WARNING: no thrust calibration for drone {label(uri)} '
 		      f'({uri}), using {THRUST_DEFAULT}')
-	return THRUST.get(uri, THRUST_DEFAULT)
+	hover, slope = THRUST.get(uri, THRUST_DEFAULT)
+	return HOVER_LIVE.get(uri, hover), slope
 
 
 # Clamp every drone's u to the limits above. Returns a new array.
