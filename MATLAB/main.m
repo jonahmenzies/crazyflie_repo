@@ -14,9 +14,14 @@
 clc; clear all; close all;
 
 %% ── Config ─────────────────────────────────────────────────────────────
-replanTimes = [1,5, 7, 10,15,20];   % s, semi-open-loop replan intervals to sweep
+% Full sweep used for the report's replication figure (Fig 8 below).
+% Short intervals are slow: 0.5 s alone solves 130 sets of c/e ODEs.
+% If short on time, remove 0.5 from this list.
+replanTimes = [0.5, 1:14, 14.5, 15, 15.5, 16, 18, 20, 25, 30, 35, 40];   % s
 ss_frac     = 0.2;                                 % TATD20 measurement window: last 20% of sim
-panel_idx   = [1, 2, 3, 4,5,6];                         % replanTimes indices shown in the formation small-multiples
+panel_times = [1, 5, 10, 14, 15, 20];              % replan intervals shown in the formation small-multiples
+panel_idx   = arrayfun(@(t) find(abs(replanTimes - t) < 1e-9, 1), panel_times);
+use_parfor  = license('test', 'Distrib_Computing_Toolbox');   % parallel sweep if the toolbox is installed
 
 %% ── Parameters & Riccati ─────────────────────────────────────────────────
 P = sims.params();
@@ -54,12 +59,25 @@ n_intervals = length(replanTimes);
 TATD20_sol  = zeros(1, n_intervals);
 x_sol_all   = cell(1, n_intervals);
 
-for idx = 1:n_intervals
-    Ts = replanTimes(idx);
-    fprintf('  Semi-open-loop replan = %.2f s (%d/%d)...\n', Ts, idx, n_intervals);
-    [x_sol, ~] = sims.semiOpenLoop(P, ric, Ts);
-    x_sol_all{idx} = x_sol;
-    TATD20_sol(idx) = computeTATD_lastFrac(x_sol, xd, pos_idx, N, n_steps, ss_frac);
+if use_parfor
+    fprintf('  Semi-open-loop sweep of %d intervals in parallel...\n', n_intervals);
+    parfor idx = 1:n_intervals
+        [x_sol, ~] = sims.semiOpenLoop(P, ric, replanTimes(idx));
+        x_sol_all{idx} = x_sol;
+    end
+    for idx = 1:n_intervals
+        TATD20_sol(idx) = computeTATD_lastFrac(x_sol_all{idx}, xd, pos_idx, N, n_steps, ss_frac);
+    end
+else
+    for idx = 1:n_intervals
+        Ts = replanTimes(idx);
+        fprintf('  Semi-open-loop replan = %.2f s (%d/%d)...', Ts, idx, n_intervals);
+        tic;
+        [x_sol, ~] = sims.semiOpenLoop(P, ric, Ts);
+        x_sol_all{idx} = x_sol;
+        TATD20_sol(idx) = computeTATD_lastFrac(x_sol, xd, pos_idx, N, n_steps, ss_frac);
+        fprintf(' TATD20 = %.4f m (%.0f s)\n', TATD20_sol(idx), toc);
+    end
 end
 
 diff_sol  = TATD20_sol - TATD20_cl;
@@ -292,7 +310,7 @@ grid on; box on;
 %% Figure 7: Instantaneous TATD, Layered, for Specific Replan Intervals
 %  Fixed selection: 1s, 14s, 15s, 20s, 30s, 60s -- edit desired_times to change.
 %  Uses x_sol_all already in the workspace, no re-sweep needed.
-desired_times = replanTimes;
+desired_times = [1, 10, 14, 15, 20, 30];
 
 sel_idx = zeros(1, numel(desired_times));
 for k = 1:numel(desired_times)
@@ -322,8 +340,43 @@ xlabel('Time (s)'); ylabel('Instantaneous TATD (m)');
 title('Instantaneous TATD for Selected Replan Intervals');
 legend(arrayfun(@(i) sprintf('%s', sel_tag{i}), 1:numel(sel_idx), 'UniformOutput', false), 'Location','northwest');
 grid on; box on;
+%% Figure 8: Replication sweep for the report (Figure 2 in the report)
+%  Top: up to 14 s on a linear scale. Bottom: full range on a log scale.
+c_rep = [0.93 0.49 0.19];
+c_ref = [0.20 0.30 0.50];
+figure('Name','Fig 8: Replication sweep','Position',[100 100 900 900],'Color','w');
+
+ax8a = subplot(2,1,1); hold(ax8a,'on');
+m = replanTimes <= 14;
+plot(ax8a, replanTimes(m), TATD20_sol(m), '-o', 'Color', c_rep, 'LineWidth', 1.8, ...
+    'MarkerFaceColor', c_rep, 'MarkerSize', 5);
+yline(ax8a, TATD20_cl, '-', 'Color', c_ref, 'LineWidth', 1.6);
+xlim(ax8a, [0 14.3]); ylim(ax8a, [0 inf]);
+xlabel(ax8a, 'replan interval T_s (s)'); ylabel(ax8a, 'TATD20 (m)');
+title(ax8a, sprintf('Replication: TATD20 against replan interval up to 14 s (t_T = %.1f s)', ric.tT));
+legend(ax8a, {'semi-open loop', sprintf('closed loop  %.3f m', TATD20_cl)}, 'Location','northwest');
+grid(ax8a,'on'); box(ax8a,'on'); set(ax8a,'FontSize',12);
+
+ax8b = subplot(2,1,2); hold(ax8b,'on');
+patch(ax8b, [14 15 15 14], [1e-3 1e-3 1e4 1e4], [0.95 0.75 0.75], 'EdgeColor','none', 'FaceAlpha',0.5);
+plot(ax8b, replanTimes, TATD20_sol, '-o', 'Color', c_rep, 'LineWidth', 1.8, ...
+    'MarkerFaceColor', c_rep, 'MarkerSize', 5);
+yline(ax8b, TATD20_cl, '-',  'Color', c_ref, 'LineWidth', 1.6);
+yline(ax8b, TATD20_ol, '--', 'Color', [0.35 0.35 0.35], 'LineWidth', 1.6);
+set(ax8b, 'YScale', 'log');
+ylim(ax8b, [0.5*TATD20_cl, 2*max([TATD20_sol, TATD20_ol])]);
+xlim(ax8b, [-1, max(replanTimes)+1]);
+xlabel(ax8b, 'replan interval T_s (s)'); ylabel(ax8b, 'TATD20 (m, log scale)');
+title(ax8b, sprintf('Replication: TATD20 against replan interval (t_T = %.1f s)', ric.tT));
+legend(ax8b, {'stability boundary, 14-15 s', 'semi-open loop', ...
+    sprintf('closed loop  %.3f m', TATD20_cl), sprintf('open loop  %.1f m', TATD20_ol)}, ...
+    'Location','northwest');
+grid(ax8b,'on'); box(ax8b,'on'); set(ax8b,'FontSize',12);
+
 %% ── Save Figures ─────────────────────────────────────────────────────────
-save_dir = '~/University/year4/semester1/EGH490-1/crazyflie_repo/MATLAB/plots/';
+% Saves next to this script, so it works on Windows and Linux
+save_dir = fullfile(fileparts(mfilename('fullpath')), 'plots');
+if ~exist(save_dir, 'dir'), mkdir(save_dir); end
 
 fig_map = { ...
     1, 'tatd20_vs_replan_headline';  ...
@@ -332,7 +385,8 @@ fig_map = { ...
     4, 'riccati_gain_decay';         ...
     5, 'closedloop_eig_near_tT';     ...
     6, 'tatd_zoomed_horizon_end';    ...
-    7, 'tatd_selected_intervals'      };
+    7, 'tatd_selected_intervals';     ...
+    8, 'fig_simulation_replication'   };
 
 for row = 1:size(fig_map, 1)
     f     = fig_map{row, 1};
